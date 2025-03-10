@@ -1,0 +1,3 @@
+# Ignore all files in /data-in and /data-out
+/data-in/*
+/data-out/*
