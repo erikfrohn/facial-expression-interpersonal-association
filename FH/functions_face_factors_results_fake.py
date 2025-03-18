@@ -15,8 +15,8 @@ def compute_results_factors_fake(path_to_new_data, path_to_result_folder, partic
     #print(team_folder2)
     path_to_team_folder1 = os.path.join(path_to_new_data, f'{team_folder1}') #, "analysis")
     path_to_team_folder2 = os.path.join(path_to_new_data, f'{team_folder2}')#, "analysis")
-    path_to_analysis_folder1 = os.path.join(path_to_team_folder1, "analysis")
-    path_to_analysis_folder2 = os.path.join(path_to_team_folder2, "analysis")
+    path_to_analysis_folder1 = os.path.join(path_to_team_folder1)
+    path_to_analysis_folder2 = os.path.join(path_to_team_folder2)
 
 
 

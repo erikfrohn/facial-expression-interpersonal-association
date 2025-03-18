@@ -9,7 +9,7 @@ def process_participant_videos2(path_to_analysis_folder, path_to_avi_files, part
     role = 'navigator' if int(participant_id) % 2 != 0 else 'pilot'  # navigator = odd, pilot = even
     
     csv_filename = f"pp{participant_id}_{role}_video_frames.csv"
-    path_to_frame_csv_file = os.path.join(path_to_analysis_folder, csv_filename)
+    path_to_frame_csv_file = os.path.join(path_to_analysis_folder, 'Video', csv_filename)
     #print(f"Reading CSV file: {path_to_frame_csv_file}")
     frame_data_csv = pd.read_csv(path_to_frame_csv_file)
 
@@ -47,14 +47,14 @@ def process_participant_videos2(path_to_analysis_folder, path_to_avi_files, part
         #print(f"FPS: {fps}, Width: {width}, Height: {height}, Total Frames: {length}")
 
         black_frame = np.zeros((height, width, 3), dtype=np.uint8)
-        output_filename = f'pp{participant_id}_{role}_{name}_reconstructed_video.avi'
+        output_filename = f'pp{participant_id}_{role}_{name}_reconstructed_video.mp4'
         # Create the new folder path
         facial_expression_folder = os.path.join(path_to_analysis_folder, 'facial_expression')
         # Create the folder if it doesn't exist
         os.makedirs(facial_expression_folder, exist_ok=True)
         # Define the new output path
         path_output_filename = os.path.join(facial_expression_folder, output_filename)
-        path_output_filename_no_black = path_output_filename.replace('.avi', '_no_black.avi')
+        path_output_filename_no_black = path_output_filename.replace('.mp4', '_no_black.mp4')
 
         # Skip processing if output files already exist
         if os.path.exists(path_output_filename) and os.path.exists(path_output_filename_no_black):

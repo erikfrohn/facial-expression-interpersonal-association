@@ -11,12 +11,11 @@ def get_factors(path_to_analysis_folder, participant_id):
     path_to_frame_csv_file = os.path.join(path_to_analysis_folder,'Video', csv_filename)
     frame_data_csv = pd.read_csv(path_to_frame_csv_file)
 
-
     # Define the path to the facial_expression folder within the analysis folder
     facial_expression_folder = os.path.join(path_to_analysis_folder, 'facial_expression')
     # List all files in the analysis folder
     all_files = os.listdir(facial_expression_folder)
-    
+
 
     # Iterate over all rows in the CSV file
     for index, row in frame_data_csv.iterrows():
@@ -61,6 +60,6 @@ def get_factors(path_to_analysis_folder, participant_id):
                 'f5': f5,
                 'f6': f6
             })
-
+            
             factors_df.to_csv(path_output_csv_factors, index=False)
             print(f"Factors of pp{participant_id} saved to {path_output_csv_factors}")

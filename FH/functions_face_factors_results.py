@@ -83,10 +83,13 @@ def compute_results_factors(path_to_analysis_folder,path_to_result_folder, parti
             f_nav = factors2[:, i]
             label = f'f{i+1}'
 
+            ################# REMOVED DYNAMIC TIME WARPING FOR FROHN 2025 ########################################
             # Compute DTW 
             distance_pp, path = fastdtw(f_pil.reshape(-1, 1), f_nav.reshape(-1, 1), dist=euclidean)
             # Normalize distance_pp
             distance_pp /= (len(f_pil)+len(f_nav))
+            ######################################################################################################
+            
             # Calculate overall Pearson correlation for the entire series
             pearson_correlation_pp = np.corrcoef(f_nav, f_pil)[0, 1]
 
