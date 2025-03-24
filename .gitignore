@@ -3,3 +3,5 @@
 /data-out/*
 /OpenFace_2.2.0_win_x64
 /FEMKE OLD
+*.pyc
+*.csv
