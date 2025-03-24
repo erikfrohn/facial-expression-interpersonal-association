@@ -24,7 +24,7 @@ def au_to_factors(df):
     
     return factors_df
 
-def corrCA_weights(file_location, df_nav, df_pil):
+def corrCA_weights(df_nav, df_pil):
     # extract needed columns
     df_nav = df_nav[[' AU01_r', ' AU02_r', ' AU04_r', ' AU05_r', ' AU06_r', ' AU07_r', ' AU09_r',
                           ' AU10_r', ' AU12_r', ' AU14_r', ' AU15_r', ' AU17_r', ' AU20_r', ' AU23_r',
@@ -36,15 +36,7 @@ def corrCA_weights(file_location, df_nav, df_pil):
     # reshape for the corrca function and round
     df_nav = np.round(df_nav.T.values,2)
     df_pil = np.round(df_pil.T.values,2)
-
-    # TODO: this should not be needed and should be fixed in pre
-    if df_nav.size != df_pil.size:
-        if df_nav.size < df_pil.size:
-            df_pil = df_pil[:,:df_nav.shape[1]]
-        else:
-            df_nav = df_nav[:,:df_pil.shape[1]]
-        print(f"files of pairs in {file_location} do not have the same amount of datapoints - temporary fix has made them equal length")
-        
+       
     # Stack the data along the first dimension
     pair_data = np.stack([df_nav, df_pil], axis=0)  # Shape: (2, 17, 100)
 
@@ -55,7 +47,16 @@ def corrCA_weights(file_location, df_nav, df_pil):
     # first the weights and the inter-subject
     corrCA_df = pd.DataFrame(W[:,0], columns=['w']) # TODO: check whether you want multiple components!
     corrCA_df['isc'] = ISC
-    corrCA_df.to_csv(os.path.join(file_location, "corrca_weights.csv"), index=False)
+    return corrCA_df
+
+def make_equal_length(file_location, df_nav, df_pil):
+    if len(df_nav) != len(df_pil):
+        min_length = min(len(df_nav), len(df_pil))
+        df_nav = df_nav.iloc[:min_length]
+        df_pil = df_pil.iloc[:min_length]
+        print(f"files of pairs in {file_location} do not have the same amount of datapoints - temporary fix has made them equal length")
+    return df_nav, df_pil
+
 
 def apply_corrCA_weights(au_data, w):
     frames = au_data['frame']
@@ -64,10 +65,10 @@ def apply_corrCA_weights(au_data, w):
                           ' AU25_r', ' AU26_r', ' AU45_r']]
     # Transform the data using weights
     Y = np.dot(au_data, w['w'])  # Shape: (W, T) now using W=1 so not interesting 
-
+    
     corrca_df = pd.DataFrame({
         'frame': frames,
-        'component1': Y[0]
+        'component1': Y
     }
     )
     return corrca_df
