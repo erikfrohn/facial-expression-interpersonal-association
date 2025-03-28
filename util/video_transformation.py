@@ -2,6 +2,7 @@ import cv2
 import os
 import pandas as pd
 import numpy as np
+from moviepy import *
 
 def rewrap_video(file, path):
     print(file)
@@ -145,3 +146,12 @@ def process_participant_videos(path_to_analysis_folder, path_to_avi_files, parti
         print(f"Video reconstruction complete for segment {index} of pp{participant_id}.")
 
     cap.release()
+
+def merge_audio_video(video_path, audio_path, output_path):
+
+    video = VideoFileClip(video_path)
+    audio = AudioFileClip(audio_path)
+
+    video = video.with_audio(audio)
+
+    video.write_videofile(output_path, codec='rawvideo', audio_codec='aac')
