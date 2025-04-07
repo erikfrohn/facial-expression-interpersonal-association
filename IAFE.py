@@ -26,6 +26,7 @@ else:
     phases = ['instructional_video_0', 'discussion_phase_0', 'discussion_phase_1'] #add RESCHU phases
     factors = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
 
+    os.makedirs(data_loc, exist_ok=True)
     os.makedirs(au_loc, exist_ok=True)
     os.makedirs(feat_loc, exist_ok=True)
     os.makedirs(corr_loc, exist_ok=True)
