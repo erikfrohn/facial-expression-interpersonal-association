@@ -8,7 +8,45 @@ from pyrqa.analysis_type import Cross
 from pyrqa.computation import RPComputation
 from pyrqa.image_generator import ImageGenerator
 import numpy as np
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
 
+
+def binarize_components(components, threshold=0.5):
+    """
+    Scale each component to [0, 1] and binarize based on a threshold.
+    
+    Parameters:
+    -----------
+    components : np.ndarray, shape (n_components, n_timepoints)
+        Correlated component time series.
+    threshold : float, default=0.5
+        Threshold for binarization (values >= threshold become 1).
+        
+    Returns:
+    --------
+    binary_components : np.ndarray, shape (n_components, n_timepoints)
+        Binarized components (0 or 1).
+    """
+    # Scale each component to [0, 1] (within-component)
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled = scaler.fit_transform(components.T).T  # Transpose for sklearn
+    
+    # Binarize based on component-specific median
+    medians = np.median(scaled, axis=1, keepdims=True)  # Shape (n_components, 1)
+    binary_components = (scaled >= medians).astype(int)
+    
+    return binary_components
+
+
+
+
+
+
+
+
+
+#### CRQA DEV HELL :(
 def crqa(name, nav_data, pil_data):
     time_series_nav = TimeSeries(nav_data,
                             embedding_dimension=2,
