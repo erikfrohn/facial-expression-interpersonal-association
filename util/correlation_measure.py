@@ -85,7 +85,7 @@ from pyrqa.time_series import TimeSeries
     # p1_data and p2_data should be N x 6 arrays for 6 components
 
     # Normalize the data
-def crqa2(p1_data, p2_data):
+def crqa2(name, p1_data, p2_data):
     p1_data = (p1_data - np.mean(p1_data, axis=0)) / np.std(p1_data, axis=0)
     p2_data = (p2_data - np.mean(p2_data, axis=0)) / np.std(p2_data, axis=0)
 
@@ -118,11 +118,13 @@ def crqa2(p1_data, p2_data):
     computation = RPComputation.create(settings)
     result2 = computation.run()
     ImageGenerator.save_recurrence_plot(result2.recurrence_matrix_reverse,
-                                        f'haha_cross_recurrence_plot.png')
+                                        f'{name}_cross_recurrence_plot2.png')
     
 
-
+# windowed DO NOT USE
 def crqa3(p1_data, p2_data):
+    print("PLEASE MAKE SURE YOU WANT TO USE THIS")
+    return 0
     window_size = 100  # frames
     step_size = 20     # frames
 
