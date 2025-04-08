@@ -24,7 +24,8 @@ def au_to_factors(df):
     
     return factors_df
 
-def corrCA_weights(df_nav, df_pil):
+def corrCA_weights(df_nav, df_pil, number_of_components=17):
+    number_of_components = min(number_of_components, 17)
     # extract needed columns
     df_nav = df_nav[[' AU01_r', ' AU02_r', ' AU04_r', ' AU05_r', ' AU06_r', ' AU07_r', ' AU09_r',
                           ' AU10_r', ' AU12_r', ' AU14_r', ' AU15_r', ' AU17_r', ' AU20_r', ' AU23_r',
@@ -45,8 +46,10 @@ def corrCA_weights(df_nav, df_pil):
 
     ## start output creation
     # first the weights and the inter-subject
-    corrCA_df = pd.DataFrame(W[:,0], columns=['w']) # TODO: check whether you want multiple components!
+    cols = [f"w{i}" for i in range(number_of_components)]
+    corrCA_df = pd.DataFrame(W[:,:number_of_components], columns = cols) 
     corrCA_df['isc'] = ISC
+
     return corrCA_df
 
 def make_equal_length(file_location, df_nav, df_pil):
@@ -58,17 +61,18 @@ def make_equal_length(file_location, df_nav, df_pil):
     return df_nav, df_pil
 
 
-def apply_corrCA_weights(au_data, w):
-    frames = au_data['frame']
+def apply_corrCA_weights(au_data, w, number_of_components=3):
+    frames = au_data['frame'] # extract frames
     au_data = au_data[[' AU01_r', ' AU02_r', ' AU04_r', ' AU05_r', ' AU06_r', ' AU07_r', ' AU09_r',
                           ' AU10_r', ' AU12_r', ' AU14_r', ' AU15_r', ' AU17_r', ' AU20_r', ' AU23_r',
-                          ' AU25_r', ' AU26_r', ' AU45_r']]
-    # Transform the data using weights
-    Y = np.dot(au_data, w['w'])  # Shape: (W, T) now using W=1 so not interesting 
+                          ' AU25_r', ' AU26_r', ' AU45_r']] # extract only essential action units
+    w = w.drop(columns = ['isc']) 
+    number_of_components = min(number_of_components, w.shape[1]) # make sure we do not want more components than we initially extracted
     
-    corrca_df = pd.DataFrame({
-        'frame': frames,
-        'component1': Y
-    }
-    )
+    # linear projection
+    Y = np.dot(au_data, w)  # Shape: (W, T) 
+    Y_elements = {'frame' : frames}
+    for i in range(1,number_of_components+1):
+        Y_elements[f'f{i}'] = Y[:,i]
+    corrca_df = pd.DataFrame(Y_elements)
     return corrca_df
