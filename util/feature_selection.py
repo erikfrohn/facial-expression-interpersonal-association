@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import util.CorrCA as CorrCA
+from sklearn.preprocessing import MinMaxScaler
 
 def au_to_factors(df):
     # Combine action units into factors
@@ -76,3 +77,56 @@ def apply_corrCA_weights(au_data, w, number_of_components=3):
         Y_elements[f'f{i}'] = Y[:,i]
     corrca_df = pd.DataFrame(Y_elements)
     return corrca_df
+
+
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+
+def binarize_component(
+    component,
+    threshold=None,
+    percentile=50,
+    scale=True
+):
+    """
+    Scale a single component to [0, 1] and binarize based on a threshold or percentile.
+
+    Parameters:
+    -----------
+    component : np.ndarray, shape (n_timepoints,)
+        Time series of a single component.
+    threshold : float or None, optional
+        Fixed threshold (if provided, overrides percentile).
+    percentile : float, default=50
+        Percentile to use if threshold=None (e.g., 25, 50, 75).
+
+    Returns:
+    --------
+    binary_component : np.ndarray, shape (n_timepoints,)
+        Binarized component (0 or 1).
+    threshold_used : float
+        The actual threshold value used.
+    """
+    # Ensure input is 1D
+    component = component.flatten()
+    
+    # Scale to [0, 1]
+    if scale:
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        scaled = scaler.fit_transform(component.reshape(-1, 1)).flatten()
+        
+        # Compute threshold
+        if threshold is not None:
+            threshold_used = threshold
+        else:
+            threshold_used = np.percentile(scaled, percentile)
+
+        # Binarize
+        binary_component = (scaled >= threshold_used).astype(int)
+        print(threshold_used)
+        return binary_component
+    
+    binarize_component = (component >= threshold).astype(int)
+    return binarize_component
