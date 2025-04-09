@@ -9,41 +9,6 @@ from pyrqa.computation import RPComputation
 from pyrqa.image_generator import ImageGenerator
 import numpy as np
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
-
-
-def binarize_components(components, threshold=0.5):
-    """
-    Scale each component to [0, 1] and binarize based on a threshold.
-    
-    Parameters:
-    -----------
-    components : np.ndarray, shape (n_components, n_timepoints)
-        Correlated component time series.
-    threshold : float, default=0.5
-        Threshold for binarization (values >= threshold become 1).
-        
-    Returns:
-    --------
-    binary_components : np.ndarray, shape (n_components, n_timepoints)
-        Binarized components (0 or 1).
-    """
-    # Scale each component to [0, 1] (within-component)
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    scaled = scaler.fit_transform(components.T).T  # Transpose for sklearn
-    
-    # Binarize based on component-specific median
-    medians = np.median(scaled, axis=1, keepdims=True)  # Shape (n_components, 1)
-    binary_components = (scaled >= medians).astype(int)
-    
-    return binary_components
-
-
-
-
-
-
-
 
 
 #### CRQA DEV HELL :(
@@ -85,22 +50,23 @@ from pyrqa.time_series import TimeSeries
     # p1_data and p2_data should be N x 6 arrays for 6 components
 
     # Normalize the data
-def crqa2(name, p1_data, p2_data):
-    p1_data = (p1_data - np.mean(p1_data, axis=0)) / np.std(p1_data, axis=0)
-    p2_data = (p2_data - np.mean(p2_data, axis=0)) / np.std(p2_data, axis=0)
+def crqa2(name, p1_data, p2_data, embedding_dimension=3,time_delay=1,radius=0.5, plot=True, normalize=False):
+    if normalize:
+        p1_data = (p1_data - np.mean(p1_data, axis=0)) / np.std(p1_data, axis=0)
+        p2_data = (p2_data - np.mean(p2_data, axis=0)) / np.std(p2_data, axis=0)
 
     # Create time series objects
     time_series1 = TimeSeries(p1_data,
-                            embedding_dimension=1,  # No embedding needed if you're using CCA components
-                            time_delay=1)
+                            embedding_dimension=embedding_dimension,  # No embedding needed if you're using CCA components
+                            time_delay=time_delay)
     time_series2 = TimeSeries(p2_data,
-                            embedding_dimension=1,
-                            time_delay=1)
+                            embedding_dimension=embedding_dimension,
+                            time_delay=time_delay)
 
     # Configure settings
     settings = Settings(time_series1,
                     time_series2,
-                    neighbourhood=FixedRadius(0.5),  # Adjust radius based on your data
+                    neighbourhood=FixedRadius(radius),  # Adjust radius based on your data
                     similarity_measure=EuclideanMetric,
                     theiler_corrector=1)
 
@@ -108,18 +74,19 @@ def crqa2(name, p1_data, p2_data):
     computation = RQAComputation.create(settings)
     result = computation.run()
 
-    # Print results
-    print("Recurrence rate: %.4f" % result.recurrence_rate)
-    print("Determinism: %.4f" % result.determinism)
-    print("Laminarity: %.4f" % result.laminarity)
-    print("Average diagonal line length: %.4f" % result.average_diagonal_line)
-    print("Longest diagonal line length: %d" % result.longest_diagonal_line)
+    if plot:
+        # Print results
+        print("Recurrence rate: %.4f" % result.recurrence_rate)
+        print("Determinism: %.4f" % result.determinism)
+        print("Laminarity: %.4f" % result.laminarity)
+        print("Average diagonal line length: %.4f" % result.average_diagonal_line)
+        print("Longest diagonal line length: %d" % result.longest_diagonal_line)
 
-    computation = RPComputation.create(settings)
-    result2 = computation.run()
-    ImageGenerator.save_recurrence_plot(result2.recurrence_matrix_reverse,
-                                        f'{name}_cross_recurrence_plot2.png')
-    
+        computation = RPComputation.create(settings)
+        result2 = computation.run()
+        ImageGenerator.save_recurrence_plot(result2.recurrence_matrix_reverse,
+                                            f'{name}.png')
+    return result.recurrence_rate, result.determinism, result.laminarity, result.average_diagonal_line, result.longest_diagonal_line
 
 # windowed DO NOT USE
 def crqa3(p1_data, p2_data):
