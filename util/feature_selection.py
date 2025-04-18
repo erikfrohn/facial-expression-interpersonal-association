@@ -74,7 +74,7 @@ def apply_corrCA_weights(au_data, w, number_of_components=3):
     Y = np.dot(au_data, w)  # Shape: (W, T) 
     Y_elements = {'frame' : frames}
     for i in range(1,number_of_components+1):
-        Y_elements[f'f{i}'] = Y[:,i]
+        Y_elements[f'f{i}'] = Y[:,i-1]
     corrca_df = pd.DataFrame(Y_elements)
     return corrca_df
 
