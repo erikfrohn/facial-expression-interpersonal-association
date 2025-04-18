@@ -9,14 +9,18 @@ from pyrqa.analysis_type import Cross
 from pyrqa.computation import RPComputation
 from pyrqa.image_generator import ImageGenerator
 import numpy as np
+import util.feature_selection as fs
 from sklearn.preprocessing import StandardScaler
 
-def crqa(name, p1_data, p2_data, embedding_dimension=1,time_delay=1,radius=0.5, plot=True, normalize=False):
+def crqa(name, p1_data, p2_data, embedding_dimension=1,time_delay=1,radius=0.2, plot=True, normalize=False):
     if normalize:
-        # Normalize data jointly across dyad
+        p1_data = p1_data[:len(p2_data)].reshape(-1, 1) 
+        p2_data = p2_data[:len(p1_data)].reshape(-1, 1) 
         scaler = StandardScaler().fit(np.vstack([p1_data, p2_data]))
         p1_data = scaler.transform(p1_data)
         p2_data = scaler.transform(p2_data)
+
+    #radius = r * np.std(np.concatenate((p1_data,p2_data)))
 
     # Create time series objects
     time_series1 = TimeSeries(p1_data,
@@ -31,7 +35,7 @@ def crqa(name, p1_data, p2_data, embedding_dimension=1,time_delay=1,radius=0.5, 
                     analysis_type=Cross,
                     neighbourhood=FixedRadius(radius),  # Adjust radius based on your data
                     similarity_measure=EuclideanMetric,
-                    theiler_corrector=1)
+                    theiler_corrector=0)
 
     # Perform computation
     computation = RQAComputation.create(settings)
