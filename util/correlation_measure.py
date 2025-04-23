@@ -12,6 +12,8 @@ def crqa_lag_analysis(p1, p2,
     # Input validation
     p1 = np.asarray(p1)
     p2 = np.asarray(p2)
+    p1 = p1[:len(p2)]
+    p2 = p2[:len(p1)]
     if p1.size == 0 or p2.size == 0:
         raise ValueError("Empty input time series")
     
