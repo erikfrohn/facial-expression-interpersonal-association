@@ -6,7 +6,8 @@ def crqa_lag_analysis(p1, p2,
                      target_rr=0.05, 
                      sampling_rate=60,
                      max_lag_seconds=6,
-                     normalize=True,
+                     normalize=False,
+                     remove_zero_matches=False,
                      downsample=True,
                      debug=False):
     # Input validation
@@ -17,6 +18,11 @@ def crqa_lag_analysis(p1, p2,
     if p1.size == 0 or p2.size == 0:
         raise ValueError("Empty input time series")
     
+    if remove_zero_matches:
+        p1[p1<=0.1] = -10
+        p2[p2<=0.1] = 10
+        
+
     # Add singleton dimension if 1D
     if p1.ndim == 1:
         p1 = p1[:, None]
