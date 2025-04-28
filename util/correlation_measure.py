@@ -7,9 +7,10 @@ def crqa_lag_analysis(p1, p2,
                      sampling_rate=60,
                      max_lag_seconds=6,
                      normalize=False,
-                     remove_zero_matches=False,
+                     remove_non_event_matches=False,
                      downsample=True,
-                     debug=False):
+                     debug=False,
+                     radius=2.0):
     # Input validation
     p1 = np.asarray(p1)
     p2 = np.asarray(p2)
@@ -18,9 +19,9 @@ def crqa_lag_analysis(p1, p2,
     if p1.size == 0 or p2.size == 0:
         raise ValueError("Empty input time series")
     
-    if remove_zero_matches:
-        p1[p1<=0.1] = -10
-        p2[p2<=0.1] = 10
+    if remove_non_event_matches:
+        p1[np.abs(p1)<=0.08] = -100
+        p2[np.abs(p2)<=0.08] = 100
         
 
     # Add singleton dimension if 1D
@@ -50,9 +51,9 @@ def crqa_lag_analysis(p1, p2,
             print(f"Normalized ranges - P2: [{np.min(p2):.2f}, {np.max(p2):.2f}]")
     
     # Automatic radius determination with safeguards
-    initial_radius = 1.0
-    min_radius, max_radius = 0.01, 5.0
-    radius = initial_radius
+    # initial_radius = 2.0
+    # min_radius, max_radius = 0.01, 5.0
+    # radius = initial_radius
     
     # Calculate initial distances
     distances = np.linalg.norm(p1 - p2, axis=-1)
@@ -61,31 +62,32 @@ def crqa_lag_analysis(p1, p2,
     if len(valid_distances) == 0:
         raise ValueError("All distances are NaN/infinite after normalization")
     
-    # Adaptive radius search
-    for _ in range(30):
-        current_rr = np.mean(valid_distances < radius)
-        if debug:
-            print(f"Radius: {radius:.4f}, Current RR: {current_rr:.4f}")
+    # # Adaptive radius search
+    # for _ in range(30):
+    #     current_rr = np.mean(valid_distances < radius)
+    #     if debug:
+    #         print(f"Radius: {radius:.4f}, Current RR: {current_rr:.4f}")
         
-        if abs(current_rr - target_rr) < 0.01:
-            break
-        elif current_rr < target_rr:
-            min_radius = radius
-            new_radius = (radius + max_radius) / 2
-        else:
-            max_radius = radius
-            new_radius = (radius + min_radius) / 2
+    #     if abs(current_rr - target_rr) < 0.01:
+    #         break
+    #     elif current_rr < target_rr:
+    #         min_radius = radius
+    #         new_radius = (radius + max_radius) / 2
+    #     else:
+    #         max_radius = radius
+    #         new_radius = (radius + min_radius) / 2
         
-        if abs(new_radius - radius) < 1e-6:
-            break
-        radius = new_radius
-    else:
-        if debug:
-            print("Warning: Radius search did not converge")
+    #     if abs(new_radius - radius) < 1e-6:
+    #         break
+    #     radius = new_radius
+    # else:
+    #     if debug:
+    #         print("Warning: Radius search did not converge")
     
     # Compute full distance matrix
     dist_matrix = cdist(p1, p2, metric='euclidean')
-    
+    overall_rr = np.mean(dist_matrix < radius)
+
     # Lag analysis
     max_lag = int(max_lag_seconds * sampling_rate)
     lags = np.arange(-max_lag, max_lag+1)
@@ -116,4 +118,10 @@ def crqa_lag_analysis(p1, p2,
         plt.title(f'Mimicry Lag Profile (Radius = {radius:.2f})')
         plt.grid(True)
         plt.show()
-    return lags, np.array(rr_profile), radius
+        
+    return {
+        'RR': overall_rr,
+        'lags': lags,
+        'rr_profile': rr_profile,
+        'radius': radius
+    }
