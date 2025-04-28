@@ -25,7 +25,7 @@ def au_to_factors(df):
     
     return factors_df
 
-def corrCA_weights(df_nav, df_pil, number_of_components=17):
+def corrCA_weights(df_nav, df_pil, number_of_components=3):
     number_of_components = min(number_of_components, 17)
     # extract needed columns
     df_nav = df_nav[[' AU01_r', ' AU02_r', ' AU04_r', ' AU05_r', ' AU06_r', ' AU07_r', ' AU09_r',
@@ -74,7 +74,7 @@ def apply_corrCA_weights(au_data, w, number_of_components=3):
     Y = np.dot(au_data, w)  # Shape: (W, T) 
     Y_elements = {'frame' : frames}
     for i in range(1,number_of_components+1):
-        Y_elements[f'f{i}'] = Y[:,i-1]
+        Y_elements[f'c{i}'] = Y[:,i-1]
     corrca_df = pd.DataFrame(Y_elements)
     return corrca_df
 
