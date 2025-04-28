@@ -2,20 +2,21 @@ import pandas as pd
 import os
 import numpy as np
 import util.correlation_measure as cm
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+
 
 LOCATION = "data"
 FEATURE_FOLDER = "features"
 PHASES = [f'{name}_{i}' for name, num in  [("instructional_video", 1), ("discussion_phase", 2), ('reschu_run',8)] for i in range(num)]#, ("reschu_run", 8)] for i in range(num)]
-SETS = ['corrca', 'factors']
 FACTORS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
 COMPONENTS = ['c1', 'c2', 'c3']
-PAIRS = [f'0{i}_0{i+1}' for i in np.arange(1,9,2)]
-PAIRS.append("09_10")
-PAIRS.extend([f'{i}_{i+1}' for i in np.arange(11,104,2)])
 AVAILABLE_PAIRS = ['05_06', '07_08', '09_10', '103_104', '27_28', '83_84', '85_86', '87_88', '91_92', '93_94', '95_96', '97_98']
 SKIP_PAIRS = ['53_54', '55_56', "63_64", "89_90"]
 
-EXPERIMENT = True
+
 def crqa_radius_gridsearch(radii = [0.1, 0.2, 0.3, 0.4, 0.5]):
     # Initialize DataFrame to store all results
     results_df = pd.DataFrame(columns=[
@@ -178,3 +179,86 @@ def crqa_radius_gridsearch(radii = [0.1, 0.2, 0.3, 0.4, 0.5]):
     # Display sample of the results
     print("\nSample of the results DataFrame:")
     print(results_df.head())
+
+def plot_crqa_radius_gridsearch(results_df):
+
+    # Set up plot grid
+    fig = plt.figure(figsize=(24, 18))
+    sns.set(style="whitegrid", font_scale=1.0)
+    plt.subplots_adjust(hspace=0.4, wspace=0.3)
+
+    # Create 3x3 grid (3 CORRCA components + 6 factors)
+    axes = fig.subplots(3, 3)
+
+    # Common plotting function
+    def plot_component(ax, data, title):
+        # Calculate statistics
+        agg_data = data.groupby(['radius', 'condition', 'non_event_matches'])['RR'].agg(['mean', 'std', 'count']).reset_index()
+        agg_data['ci'] = 1.96 * agg_data['std'] / np.sqrt(agg_data['count'])
+        
+        # Plot lines with error bands
+        sns.lineplot(
+            data=agg_data,
+            x='radius',
+            y='mean',
+            hue='condition',
+            style='non_event_matches',
+            palette={'real': '#1f77b4', 'fake': '#ff7f0e'},
+            style_order=['included', 'excluded'],
+            markers=True,
+            dashes=[(1,0), (2,2)],
+            markersize=6,
+            linewidth=1.5,
+            ax=ax
+        )
+        
+        # Add error bands
+        for cond in ['real', 'fake']:
+            for match in ['included', 'excluded']:
+                subset = agg_data[(agg_data['condition'] == cond) & 
+                                (agg_data['non_event_matches'] == match)]
+                ax.fill_between(
+                    subset['radius'],
+                    subset['mean'] - subset['ci'],
+                    subset['mean'] + subset['ci'],
+                    alpha=0.2,
+                    color={'real': '#1f77b4', 'fake': '#ff7f0e'}[cond]
+                )
+        
+        ax.set_title(title, pad=12)
+        ax.set_xlabel('Radius', labelpad=8)
+        ax.set_ylabel('RR ± 95% CI', labelpad=8)
+        ax.set_ylim(-0.05, 1.15)
+        ax.grid(True, alpha=0.3)
+        
+        # Only show legend on first plot
+        if ax == axes[0,0]:
+            ax.legend()
+        else:
+            ax.get_legend().remove()
+
+    # Plot CORRCA components
+    for idx, component in enumerate(['c1', 'c2', 'c3']):
+        ax = axes[idx//3, idx%3]
+        comp_data = results_df[
+            (results_df['method'] == 'corrca') &
+            (results_df['component_factor'] == component)
+        ]
+        plot_component(ax, comp_data, f'CORRCA Component {component.upper()}')
+
+    # Plot Facial Factors
+    for idx, factor in enumerate(['f1', 'f2', 'f3', 'f4', 'f5', 'f6']):
+        ax_row = (idx+3)//3
+        ax_col = (idx+3)%3
+        ax = axes[ax_row, ax_col]
+        
+        factor_data = results_df[
+            (results_df['method'] == 'factor') &
+            (results_df['component_factor'] == factor)
+        ]
+        plot_component(ax, factor_data, f'Facial Factor {factor.upper()}')
+
+
+
+    plt.savefig('all_components_factors_grid.png', dpi=300, bbox_inches='tight')
+    plt.show()
