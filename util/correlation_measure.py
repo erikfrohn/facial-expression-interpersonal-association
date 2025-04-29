@@ -102,9 +102,9 @@ def crqa_lag_analysis(p1, p2,
             
         rr = np.mean(diag < radius)
         rr_profile.append(rr)
-    
+    rr_profile = np.round(rr_profile, 4)
     lags = lags/sampling_rate
-    
+    overall_rr = np.round(overall_rr, 4)
     if debug:
         print(f"Final radius: {radius:.4f}")
         print(f"Max RR: {np.max(rr_profile):.4f}")
