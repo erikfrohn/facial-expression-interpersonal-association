@@ -1,0 +1,8 @@
+,name,start_idx,start_frame,finish_idx,finish_frame,video_cnt
+0,instructional_video_0,6232,6775.0,25057,25600.0,0
+1,discussion_phase_0,46855,47398.0,55823,56366.0,0
+2,reschu_run_0,56647,57190.0,65140,65683.0,0
+3,reschu_run_1,69900,70443.0,78399,78942.0,0
+4,reschu_run_2,81529,82072.0,90053,90596.0,0
+5,reschu_run_3,92674,93217.0,101176,101719.0,0
+6,discussion_phase_1,103261,103804.0,112234,112777.0,0

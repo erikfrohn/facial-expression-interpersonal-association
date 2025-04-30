@@ -13,11 +13,10 @@ FEATURE_FOLDER = "features"
 PHASES = [f'{name}_{i}' for name, num in  [("instructional_video", 1), ("discussion_phase", 2), ('reschu_run',8)] for i in range(num)]#, ("reschu_run", 8)] for i in range(num)]
 FACTORS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
 COMPONENTS = ['c1', 'c2', 'c3']
-AVAILABLE_PAIRS = ['05_06', '07_08', '09_10', '103_104', '27_28', '83_84', '85_86', '87_88', '91_92', '93_94', '95_96', '97_98']
 SKIP_PAIRS = ['53_54', '55_56', "63_64", "89_90"]
 
 
-def crqa_radius_gridsearch(radii = [0.1, 0.2, 0.3, 0.4, 0.5]):
+def crqa_radius_gridsearch(name = "gridsearch", radii = [0.1, 0.2, 0.3, 0.4, 0.5], AVAILABLE_PAIRS = ['05_06', '07_08', '09_10', '103_104', '27_28', '83_84', '85_86', '87_88', '91_92', '93_94', '95_96', '97_98'] ):
     # Initialize DataFrame to store all results
     results_df = pd.DataFrame(columns=[
         'pair', 'phase', 'method', 'component_factor', 'radius', 
@@ -50,7 +49,7 @@ def crqa_radius_gridsearch(radii = [0.1, 0.2, 0.3, 0.4, 0.5]):
     for f in FACTORS:
         print(f"Processing factor {f}")
         for r in radii:
-            for pair in AVAILABLE_PAIRS[:10]:
+            for pair in AVAILABLE_PAIRS:
                 p1, p2 = pair.split("_")
                 for phase in PHASES:
                     p1_loc = os.path.join(LOCATION, pair, FEATURE_FOLDER, f'pp{p1}_{phase}_factors.csv')
@@ -79,7 +78,7 @@ def crqa_radius_gridsearch(radii = [0.1, 0.2, 0.3, 0.4, 0.5]):
     for c in ['c1', 'c2', 'c3']:
         print(f"Processing component {c}")
         for r in radii:
-            for pair in AVAILABLE_PAIRS[:10]:
+            for pair in AVAILABLE_PAIRS:
                 p1, p2 = pair.split("_")
                 for phase in PHASES:
                     p1_loc = os.path.join(LOCATION, pair, FEATURE_FOLDER, f'pp{p1}_{phase}_corrca.csv')
@@ -105,13 +104,13 @@ def crqa_radius_gridsearch(radii = [0.1, 0.2, 0.3, 0.4, 0.5]):
 
     # Process surrogate pairs - Factors
     print("\nSURROGATE PAIRS - FACTORS\n")
-    index_real = np.arange(10)
-    index_fake = np.append(np.arange(1,10),0)
+    index_real = np.arange(len(AVAILABLE_PAIRS))
+    index_fake = np.append(np.arange(1,len(AVAILABLE_PAIRS)),0)
 
     for f in FACTORS:
         print(f"Processing factor {f} for surrogate pairs")
         for r in radii:
-            for i in range(10):
+            for i in range(len(AVAILABLE_PAIRS)):
                 pair1 = AVAILABLE_PAIRS[index_real[i]]
                 pair2 = AVAILABLE_PAIRS[index_fake[i]]
                 p1, _ = pair1.split("_")
@@ -144,7 +143,7 @@ def crqa_radius_gridsearch(radii = [0.1, 0.2, 0.3, 0.4, 0.5]):
     for c in ['c1', 'c2', 'c3']:
         print(f"Processing component {c} for surrogate pairs")
         for r in radii:
-            for i in range(10):
+            for i in range(len(AVAILABLE_PAIRS)):
                 pair1 = AVAILABLE_PAIRS[index_real[i]]
                 pair2 = AVAILABLE_PAIRS[index_fake[i]]
                 p1, _ = pair1.split("_")
@@ -173,14 +172,14 @@ def crqa_radius_gridsearch(radii = [0.1, 0.2, 0.3, 0.4, 0.5]):
                         results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
 
     # Save results to CSV
-    results_df.to_csv('crqa_results_all_pairs.csv', index=False)
+    results_df.to_csv(f'{name}.csv', index=False)
     print("Processing complete. Results saved to crqa_results_all_pairs.csv")
 
     # Display sample of the results
     print("\nSample of the results DataFrame:")
     print(results_df.head())
 
-def plot_crqa_radius_gridsearch(results_df):
+def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
 
     # Set up plot grid
     fig = plt.figure(figsize=(24, 18))
@@ -260,5 +259,41 @@ def plot_crqa_radius_gridsearch(results_df):
 
 
 
-    plt.savefig('all_components_factors_grid.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{name}.png', dpi=300, bbox_inches='tight')
     plt.show()
+
+
+# results_df = pd.read_csv('results/CRQA_gridsearch_fine.csv')
+# import pandas as pd
+
+# # Filter for radii 0.1-0.5 with 0.1 increments
+# radius_range = [0.1,0.15,  0.2,0.25,  0.3,0.35,  0.4, 0.45, 0.5]
+# filtered_df = results_df[results_df['radius'].isin(radius_range)]
+
+# # Create pivot table with mean RR values
+# summary_table = (filtered_df
+#                  .groupby(['method', 'component_factor', 'condition', 'non_event_matches', 'radius'])
+#                  ['RR'].mean()
+#                  .unstack('radius')
+#                  .reset_index()
+#                  .round(3)
+#                  .sort_values(['method', 'component_factor', 'condition', 'non_event_matches'])
+#                 )
+
+# # Split into CORRCA and Factors tables
+# corrca_table = summary_table[summary_table['method'] == 'corrca'].drop('method', axis=1)
+# factor_table = summary_table[summary_table['method'] == 'factor'].drop('method', axis=1)
+
+# # Format column order
+# column_order = ['component_factor', 'condition', 'non_event_matches'] + radius_range
+
+# def print_table(df, title):
+#     print(f"\n{'='*50}\n{title}\n{'='*50}")
+#     print(df[column_order].to_string(index=False, float_format=lambda x: f"{x:.3f}"))
+
+# # Print formatted tables
+# print_table(corrca_table, "CORRCA Components")
+# print_table(factor_table, "Facial Factors")
+
+# # Save to CSV
+# summary_table.to_csv("crqa_radius_summary_0.1-0.5.csv", index=False)
