@@ -1,8 +1,0 @@
-# Ignore all files in /data-in and /data-out
-/data/
-/archive/
-/OpenFace_2.2.0_win_x64
-/FEMKE OLD
-*.pyc
-*.csv
-*.png
