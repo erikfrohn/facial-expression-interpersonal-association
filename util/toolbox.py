@@ -223,11 +223,18 @@ def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
                     alpha=0.2,
                     color={'real': '#1f77b4', 'fake': '#ff7f0e'}[cond]
                 )
+        # Add reference lines
+        ax.axhline(y=0.02, color='gray', linestyle=':', linewidth=1, alpha=0.7)
+        ax.axhline(y=0.05, color='gray', linestyle=':', linewidth=1, alpha=0.7)
+        
+        # Add text labels for reference lines
+        ax.text(0.5, 0.021, 'RR=0.02', color='gray', ha='center', va='bottom', fontsize=9)
+        ax.text(0.5, 0.051, 'RR=0.05', color='gray', ha='center', va='bottom', fontsize=9)
         
         ax.set_title(title, pad=12)
         ax.set_xlabel('Radius', labelpad=8)
         ax.set_ylabel('RR ± 95% CI', labelpad=8)
-        ax.set_ylim(-0.05, 1.15)
+        ax.set_ylim(-0.05, 0.4)
         ax.grid(True, alpha=0.3)
         
         # Only show legend on first plot
