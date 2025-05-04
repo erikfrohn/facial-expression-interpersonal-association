@@ -1,5 +1,5 @@
-zoom,phase,beeps,score,f4,f5,c1,c2,c3
-False,instructional_video_0,,,0.037,0.0114,0.0046,0.0539,0.0056
-False,discussion_phase_0,,,0.0311,0.0346,0.0051,0.0388,0.0489
-False,discussion_phase_1,,,0.0528,0.042,0.0091,0.0369,0.0437
-False,reschu_run_0,False,5,0.046,0.0371,0.0002,0.0619,0.0036
+zoom,phase,beeps,score,c1,c2,c3,compound,f2
+False,instructional_video_0,,,0.0372,0.0147,0.0048,0.0065,0.3412
+False,discussion_phase_0,,,0.0311,0.0404,0.0052,0.0506,0.3439
+False,discussion_phase_1,,,0.0528,0.0461,0.0096,0.1039,0.3517
+False,reschu_run_0,False,5,0.046,0.044,0.0002,0.0027,0.3614
