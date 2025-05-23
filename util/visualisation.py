@@ -1,7 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import t
+import seaborn as sns
+import pandas as pd
 
+FACTORS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
 def old_plot_multicondition_rr_profiles(condition_data, lags, 
                                   colors=['#1f77b4', '#ff7f0e', '#2ca02c'],
                                   condition_names=['Condition 1', 'Condition 2', 'Condition 3'],
@@ -174,3 +177,142 @@ def plot_multicondition_rr_profiles(condition_data, lags,
     
     plt.tight_layout()
     plt.show()
+
+
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.stats import linregress
+
+from scipy.stats import spearmanr
+
+def plot_mixed_effects_model(df):
+    # Filter only RESCHU runs
+
+    reschu_df = df[df['phase'].str.contains('reschu_run')].copy()
+
+    # Create numerical run identifier
+    reschu_df['run_number'] = reschu_df['phase'].str.extract('(\d+)').astype(int)
+
+    # Get unique pairs and assign colors
+    pairs = reschu_df['pair'].unique()
+    palette = sns.color_palette("husl", len(pairs))
+    pair_colors = dict(zip(pairs, palette))
+
+    # Create plots for each factor
+    for factor in ['f1', 'f2', 'f4', 'f5', 'f6']:
+        # Calculate global Spearman correlation
+        rho, p = spearmanr(reschu_df[factor], reschu_df['score'])
+        
+        # Format p-value annotation
+        if p < 0.001:
+            p_text = f'p < 0.001'
+        else:
+            p_text = f'p = {p:.3f}'
+        
+        # Calculate global linear trend
+        global_slope, global_intercept, _, _, _ = linregress(reschu_df[factor], reschu_df['score'])
+        
+        plt.figure(figsize=(10,6))
+        
+        # Plot individual pairs with common slope
+        for pair in pairs:
+            pair_data = reschu_df[reschu_df['pair'] == pair]
+            pair_intercept = np.mean(pair_data['score'] - global_slope * pair_data[factor])
+            x_vals = np.array([pair_data[factor].min(), pair_data[factor].max()])
+            y_vals = pair_intercept + global_slope * x_vals
+            plt.plot(x_vals, y_vals, color=pair_colors[pair], alpha=0.5, lw=1)
+            # Plot points
+            sns.scatterplot(
+                data=pair_data,
+                x=factor,
+                y='score',
+                hue='run_number',
+                palette='viridis',
+                s=100,
+                edgecolor='w',
+                linewidth=0.5,
+                legend=False,
+                ax=plt.gca()
+            )
+
+        # Add bold global trend line
+        x_global = np.linspace(reschu_df[factor].min(), reschu_df[factor].max(), 100)
+        y_global = global_intercept + global_slope * x_global
+    
+        # Add global trend line
+        plt.plot(x_global, y_global, color='black', lw=3, linestyle='--', 
+                label=f'Global Slope (β={global_slope:.2f})')
+        
+        # Add correlation annotation
+        plt.text(0.05, 0.95, 
+                f"Spearman's ρ = {rho:.2f}\n{p_text}", 
+                transform=plt.gca().transAxes,
+                va='top', ha='left',
+                bbox=dict(facecolor='white', alpha=0.8))
+
+        # Add intercept difference legend
+        handles = [plt.Line2D([0], [0], color=c, lw=2) for c in pair_colors.values()]
+        # plt.legend(handles, pairs, title='Pairs (Lines Show Baseline Differences)', 
+        #         bbox_to_anchor=(1.05, 1), loc='upper left')
+
+        plt.title(f'Score vs {factor}\nCommon Slope with Pair Baselines | {p_text}')
+        plt.xlabel(f'{factor} Value')
+        plt.ylabel('Team Score')
+        plt.grid(alpha=0.2)
+        plt.tight_layout()
+        plt.show()
+
+def delay_profile(df):
+    for f in FACTORS:
+    # Load and prepare data
+        df_fac = df[df['factor'] == f]
+    # Create condition DataFrames
+        df_intro = df_fac[df_fac['phase'] == 'instructional_video_0']
+        df_discussion = pd.concat([
+            df_fac[df_fac['phase'] == 'discussion_phase_0'], 
+            df_fac[df_fac['phase'] == 'discussion_phase_1']
+        ])
+        df_reschu = pd.concat([
+            df_fac[df_fac['phase'] == f'reschu_run_{i}'] 
+            for i in range(8)
+            ])
+        conditions = []
+        for zoom in [True, False]:
+            df_intro_f = df_intro[df_intro['zoom'] == zoom]
+            df_discussion_f = df_discussion[df_discussion['zoom'] == zoom]
+            df_reschu_f = df_reschu[df_reschu['zoom'] == zoom]
+        # Drop unnecessary columns - make sure these columns exist
+            cols_to_drop = ['pair', 'zoom', 'phase', 'beeps', 'score', 'factor']
+            df_intro_f = df_intro_f.drop(columns=[col for col in cols_to_drop if col in df_intro_f.columns])
+            df_discussion_f = df_discussion_f.drop(columns=[col for col in cols_to_drop if col in df_discussion_f.columns])
+            df_reschu_f = df_reschu_f.drop(columns=[col for col in cols_to_drop if col in df_reschu_f.columns])
+
+        # Create lag values (-6 to +6 seconds at 10Hz)
+            n_lags = 121  # 6*10*2 + 1 (including 0)
+            lags = np.linspace(-6, 6, n_lags)
+
+        # Verify data shape matches expected lags
+            print(f"Data columns: {df_intro_f.shape[1]}, Expected: {n_lags}")
+            assert df_intro_f.shape[1] == n_lags, "Number of columns doesn't match expected lag points!"
+
+        # Convert to list of RR profiles (each row becomes one profile)
+            cond1 = [row for row in df_intro_f.values]
+            cond2 = [row for row in df_discussion_f.values]
+            cond3 = [row for row in df_reschu_f.values]
+
+        # Verify normalization
+            for i, cond in enumerate([cond1,cond2,cond3]):
+                print(f"Condition {i+1} mean: {np.mean(np.concatenate(cond)):.3f}")
+            conditions.append(cond1)
+            conditions.append(cond2)
+            conditions.append(cond3)
+
+        print(len(conditions))
+    # Plot with normalized data
+        plot_multicondition_rr_profiles(
+            condition_data=conditions,
+            lags=lags,
+            title=f'RR profile for {f}'
+    )
