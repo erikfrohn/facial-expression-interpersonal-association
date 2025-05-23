@@ -1,26 +1,132 @@
 import pandas as pd
 import numpy as np
+import statsmodels.formula.api as smf
 
 from statsmodels.stats.multitest import fdrcorrection
 from scipy.stats import mannwhitneyu 
 from scipy.stats import spearmanr  
 
-COMPONENTS = ['c1', 'c2', 'c3', 'compound', 'f2']
+COMPONENTS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
+
+def statistical_factor_analysis_lme(df, debug=False, nem=False):
+    results = []
+
+    for factor in df['factor'].unique():
+        subset = df[df['factor'] == factor]
+
+        # Optional: subset by non_event_matches
+        if nem:
+            for ne_match in ['included', 'excluded']:
+                ne_subset = subset[subset['non_event_matches'] == ne_match]
+                if ne_subset['condition'].nunique() < 2:
+                    if debug:
+                        print(f"Skipping factor={factor}, ne_match={ne_match} due to lack of condition variation.")
+                    continue
+
+                model = smf.mixedlm("RR ~ condition", ne_subset, groups=ne_subset["pair"])
+                result = model.fit(reml=False)  # Use ML not REML for fixed effects comparison
+
+                condition_coef = result.params.get('condition[T.real]', float('nan'))
+                p_value = result.pvalues.get('condition[T.real]', float('nan'))
+
+                results.append({
+                    'factor': factor,
+                    'comparison': f'real_vs_fake_{ne_match}',
+                    'coef': condition_coef,
+                    'p_value': p_value
+                })
+        else:
+            if subset['condition'].nunique() < 2:
+                if debug:
+                    print(f"Skipping factor={factor} due to lack of condition variation.")
+                continue
+
+            model = smf.mixedlm("RR ~ condition", subset, groups=subset["pair"])
+            result = model.fit(reml=False)
+
+            condition_coef = result.params.get('condition[T.real]', float('nan'))
+            p_value = result.pvalues.get('condition[T.real]', float('nan'))
+
+            results.append({
+                'factor': factor,
+                'comparison': 'real_vs_fake',
+                'coef': condition_coef,
+                'p_value': p_value
+            })
+
+    results_df = pd.DataFrame(results)
+
+    # FDR correction
+    if not results_df.empty:
+        _, results_df['p_fdr'] = fdrcorrection(results_df['p_value'])
+    else:
+        results_df['p_fdr'] = []
+
+    # Optional debug print
+    if debug:
+        print("\nMixed Effects Model Results:")
+        print(results_df.sort_values('p_fdr'))
+
+    return results_df
+
+def statistical_factor_analysis_aggregated(df, debug=False):
+    """
+    Performs Mann-Whitney U test on pair-aggregated RR values.
+    Aggregates over all phases per pair per factor.
+    """
+    results = []
+
+    # Aggregate RR per pair per factor per condition
+    grouped = (
+        df.groupby(['pair', 'factor', 'condition'])
+        .agg({'RR': 'mean'})
+        .reset_index()
+    )
+
+    for factor in grouped['factor'].unique():
+        subset = grouped[grouped['factor'] == factor]
+
+        # Split real and fake conditions
+        real = subset[subset['condition'] == 'real']['RR']
+        fake = subset[subset['condition'] == 'fake']['RR']
+
+        # Make sure the lengths match across conditions
+        stat, p = mannwhitneyu(real, fake, alternative='greater')
+        results.append({
+            'factor': factor,
+            'comparison': 'real_vs_fake',
+            'statistic': stat,
+            'p_value': p,
+            'n_real': len(real),
+            'n_fake': len(fake)
+        })
+
+    # Convert results to DataFrame
+    results_df = pd.DataFrame(results)
+
+    # Apply FDR correction
+    _, results_df['p_fdr'] = fdrcorrection(results_df['p_value'])
+
+    if debug:
+        print("Significant comparisons (Mann-Whitney U, FDR-corrected):")
+        print(results_df.sort_values('p_fdr'))
+
+    return results_df
 
 def statistical_factor_analysis(df, debug=False, nem = False):
     # Initialize results storage
     results = []
 
     # Loop through each factor
-    for factor in df['component_factor'].unique():
+    for factor in df['factor'].unique():
         # Subset data for the current factor
-        subset = df[df['component_factor'] == factor]
+        subset = df[df['factor'] == factor]
         
         # Option 1: Test real vs. fake (ignore non_event_matches)
         if not nem: 
             real = subset[subset['condition'] == 'real']['RR']
             fake = subset[subset['condition'] == 'fake']['RR']
-            stat, p = mannwhitneyu(real, fake, alternative='greater')
+            stat, p = mannwhitneyu(real, fake, alternative='two-sided')
             results.append({
                 'factor': factor,
                 'comparison': 'real_vs_fake',
@@ -34,7 +140,7 @@ def statistical_factor_analysis(df, debug=False, nem = False):
                 ne_subset = subset[subset['non_event_matches'] == ne_match]
                 real = ne_subset[ne_subset['condition'] == 'real']['RR']
                 fake = ne_subset[ne_subset['condition'] == 'fake']['RR']
-                stat, p = mannwhitneyu(real, fake, alternative='greater')
+                stat, p = mannwhitneyu(real, fake, alternative='two-sided')
                 results.append({
                     'factor': factor,
                     'comparison': f'real_vs_fake_{ne_match}',

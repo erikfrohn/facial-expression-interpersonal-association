@@ -12,14 +12,12 @@ LOCATION = "data"
 FEATURE_FOLDER = "features"
 PHASES = [f'{name}_{i}' for name, num in  [("instructional_video", 1), ("discussion_phase", 2), ('reschu_run',8)] for i in range(num)]#, ("reschu_run", 8)] for i in range(num)]
 FACTORS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
-COMPONENTS = ['c1', 'c2', 'c3']
-SKIP_PAIRS = ['53_54', '55_56', "63_64", "89_90"]
 
-# TODO: included 'compound' and 'compound_global'
+
 def crqa_radius_gridsearch(name = "gridsearch", radii = [0.1, 0.2, 0.3, 0.4, 0.5], AVAILABLE_PAIRS = ['05_06', '07_08', '09_10', '103_104', '27_28', '83_84', '85_86', '87_88', '91_92', '93_94', '95_96', '97_98'] ):
     # Initialize DataFrame to store all results
     results_df = pd.DataFrame(columns=[
-        'pair', 'phase', 'method', 'component_factor', 'radius', 
+        'pair', 'phase', 'method', 'factor', 'radius', 
         'non_event_matches', 'condition', 'RR'
     ])
 
@@ -35,7 +33,7 @@ def crqa_radius_gridsearch(name = "gridsearch", radii = [0.1, 0.2, 0.3, 0.4, 0.5
             'pair': pair,
             'phase': phase,
             'method': method,
-            'component_factor': component,
+            'factor': component,
             'radius': radius,
             'non_event_matches': 'excluded' if remove_non_events else 'included',
             'condition': condition,
@@ -70,35 +68,6 @@ def crqa_radius_gridsearch(name = "gridsearch", radii = [0.1, 0.2, 0.3, 0.4, 0.5
                         new_row = process_analysis(
                             p1_df, p2_df, f, r, True, 
                             'factor', pair, phase, 'real'
-                        )
-                        results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
-
-    # Process real pairs - CORRCA
-    print("\nREAL PAIRS - CORRCA\n")
-    for c in ['c1', 'c2', 'c3']:
-        print(f"Processing component {c}")
-        for r in radii:
-            for pair in AVAILABLE_PAIRS:
-                p1, p2 = pair.split("_")
-                for phase in PHASES:
-                    p1_loc = os.path.join(LOCATION, pair, FEATURE_FOLDER, f'pp{p1}_{phase}_corrca.csv')
-                    p2_loc = os.path.join(LOCATION, pair, FEATURE_FOLDER, f'pp{p2}_{phase}_corrca.csv')
-                    
-                    if os.path.exists(p1_loc) and os.path.exists(p2_loc):
-                        p1_df = pd.read_csv(p1_loc)
-                        p2_df = pd.read_csv(p2_loc)
-                        
-                        # With non-event matches
-                        new_row = process_analysis(
-                            p1_df, p2_df, c, r, False, 
-                            'corrca', pair, phase, 'real'
-                        )
-                        results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
-                        
-                        # Without non-event matches
-                        new_row = process_analysis(
-                            p1_df, p2_df, c, r, True, 
-                            'corrca', pair, phase, 'real'
                         )
                         results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
 
@@ -138,39 +107,6 @@ def crqa_radius_gridsearch(name = "gridsearch", radii = [0.1, 0.2, 0.3, 0.4, 0.5
                         )
                         results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
 
-    # Process surrogate pairs - CORRCA
-    print("\nSURROGATE PAIRS - CORRCA\n")
-    for c in ['c1', 'c2', 'c3']:
-        print(f"Processing component {c} for surrogate pairs")
-        for r in radii:
-            for i in range(len(AVAILABLE_PAIRS)):
-                pair1 = AVAILABLE_PAIRS[index_real[i]]
-                pair2 = AVAILABLE_PAIRS[index_fake[i]]
-                p1, _ = pair1.split("_")
-                _, p2 = pair2.split("_")
-                
-                for phase in PHASES:
-                    p1_loc = os.path.join(LOCATION, pair1, FEATURE_FOLDER, f'pp{p1}_{phase}_corrca.csv')
-                    p2_loc = os.path.join(LOCATION, pair2, FEATURE_FOLDER, f'pp{p2}_{phase}_corrca.csv')
-                    
-                    if os.path.exists(p1_loc) and os.path.exists(p2_loc):
-                        p1_df = pd.read_csv(p1_loc)
-                        p2_df = pd.read_csv(p2_loc)
-                        
-                        # With non-event matches
-                        new_row = process_analysis(
-                            p1_df, p2_df, c, r, False, 
-                            'corrca', f"{pair1}_{pair2}", phase, 'fake'
-                        )
-                        results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
-                        
-                        # Without non-event matches
-                        new_row = process_analysis(
-                            p1_df, p2_df, c, r, True, 
-                            'corrca', f"{pair1}_{pair2}", phase, 'fake'
-                        )
-                        results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
-
     # Save results to CSV
     results_df.to_csv(f'{name}.csv', index=False)
     print("Processing complete. Results saved to crqa_results_all_pairs.csv")
@@ -179,8 +115,6 @@ def crqa_radius_gridsearch(name = "gridsearch", radii = [0.1, 0.2, 0.3, 0.4, 0.5
     print("\nSample of the results DataFrame:")
     print(results_df.head())
 
-
-# TODO: include compound and compound_global
 def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
 
     # Set up plot grid
@@ -189,7 +123,7 @@ def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
     plt.subplots_adjust(hspace=0.4, wspace=0.3)
 
     # Create 3x3 grid (3 CORRCA components + 6 factors)
-    axes = fig.subplots(3, 3)
+    axes = fig.subplots(2, 3)
 
     # Common plotting function
     def plot_component(ax, data, title):
@@ -245,167 +179,16 @@ def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
         else:
             ax.get_legend().remove()
 
-    # Plot CORRCA components
-    for idx, component in enumerate(['c1', 'c2', 'c3']):
-        ax = axes[idx//3, idx%3]
-        comp_data = results_df[
-            (results_df['method'] == 'corrca') &
-            (results_df['component_factor'] == component)
-        ]
-        plot_component(ax, comp_data, f'CORRCA Component {component.upper()}')
-
     # Plot Facial Factors
     for idx, factor in enumerate(['f1', 'f2', 'f3', 'f4', 'f5', 'f6']):
-        ax_row = (idx+3)//3
-        ax_col = (idx+3)%3
+        ax_row = idx//3
+        ax_col = idx%3
         ax = axes[ax_row, ax_col]
         
-        factor_data = results_df[
-            (results_df['method'] == 'factor') &
-            (results_df['component_factor'] == factor)
-        ]
+        factor_data = results_df[results_df['factor'] == factor]
         plot_component(ax, factor_data, f'Facial Factor {factor.upper()}')
 
 
 
     plt.savefig(f'{name}.png', dpi=300, bbox_inches='tight')
     plt.show()
-
-def crqa_radius_gridsearch_COMPOUND_GLOBAL(name = "gridsearch", radii = [0.1, 0.2, 0.3, 0.4, 0.5], AVAILABLE_PAIRS = ['05_06', '07_08', '09_10', '103_104', '27_28', '83_84', '85_86', '87_88', '91_92', '93_94', '95_96', '97_98'] ):
-    # Initialize DataFrame to store all results
-    results_df = pd.DataFrame(columns=[
-        'pair', 'phase', 'method', 'component_factor', 'radius', 
-        'non_event_matches', 'condition', 'RR'
-    ])
-
-    def process_analysis(p1_df, p2_df, component, radius, remove_non_events, method, pair, phase, condition):
-        output = cm.crqa_lag_analysis(
-            p1_df[component].values, 
-            p2_df[component].values, 
-            radius=radius,
-            remove_non_event_matches=remove_non_events
-        )
-        
-        new_row = {
-            'pair': pair,
-            'phase': phase,
-            'method': method,
-            'component_factor': component,
-            'radius': radius,
-            'non_event_matches': 'excluded' if remove_non_events else 'included',
-            'condition': condition,
-            'RR': output['RR']
-        }
-        
-        return new_row
-
-    # Process real pairs - CORRCA
-    print("\nREAL PAIRS\n")
-
-    for r in radii:
-        for pair in AVAILABLE_PAIRS:
-            p1, p2 = pair.split("_")
-            for phase in PHASES:
-                p1_loc = os.path.join(LOCATION, pair, FEATURE_FOLDER, f'pp{p1}_{phase}_global_corrca.csv')
-                p2_loc = os.path.join(LOCATION, pair, FEATURE_FOLDER, f'pp{p2}_{phase}_global_corrca.csv')
-                
-                if os.path.exists(p1_loc) and os.path.exists(p2_loc):
-                    p1_df = pd.read_csv(p1_loc)
-                    p2_df = pd.read_csv(p2_loc)
-                    c = 'compound_global'
-                    p1_df[c] = p1_df['c1'] + p1_df['c2'] + p1_df['c3']
-                    p2_df[c] = p2_df['c1'] + p2_df['c2'] + p2_df['c3']
-                    # With non-event matches
-                    new_row = process_analysis(
-                        p1_df, p2_df, c, r, False, 
-                        'corrca', pair, phase, 'real'
-                    )
-                    results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
-                    
-                    # Without non-event matches
-                    new_row = process_analysis(
-                        p1_df, p2_df, c, r, True, 
-                        'corrca', pair, phase, 'real'
-                    )
-                    results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
-
-    # Process surrogate pairs - Factors
-    print("\nSURROGATE PAIRS - FACTORS\n")
-    index_real = np.arange(len(AVAILABLE_PAIRS))
-    index_fake = np.append(np.arange(1,len(AVAILABLE_PAIRS)),0)
-
-    # Process surrogate pairs - CORRCA
-    print("\nSURROGATE PAIRS - CORRCA\n")
-    for r in radii:
-        for i in range(len(AVAILABLE_PAIRS)):
-            pair1 = AVAILABLE_PAIRS[index_real[i]]
-            pair2 = AVAILABLE_PAIRS[index_fake[i]]
-            p1, _ = pair1.split("_")
-            _, p2 = pair2.split("_")
-            
-            for phase in PHASES:
-                p1_loc = os.path.join(LOCATION, pair1, FEATURE_FOLDER, f'pp{p1}_{phase}_global_corrca.csv')
-                p2_loc = os.path.join(LOCATION, pair2, FEATURE_FOLDER, f'pp{p2}_{phase}_global_corrca.csv')
-                
-                if os.path.exists(p1_loc) and os.path.exists(p2_loc):
-                    p1_df = pd.read_csv(p1_loc)
-                    p2_df = pd.read_csv(p2_loc)
-                    c = 'compound_global'
-                    p1_df[c] = p1_df['c1'] + p1_df['c2'] + p1_df['c3']
-                    p2_df[c] = p2_df['c1'] + p2_df['c2'] + p2_df['c3']
-                    # With non-event matches
-                    new_row = process_analysis(
-                        p1_df, p2_df, c, r, False, 
-                        'corrca', f"{pair1}_{pair2}", phase, 'fake'
-                    )
-                    results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
-                    
-                    # Without non-event matches
-                    new_row = process_analysis(
-                        p1_df, p2_df, c, r, True, 
-                        'corrca', f"{pair1}_{pair2}", phase, 'fake'
-                    )
-                    results_df = pd.concat([results_df, pd.DataFrame([new_row])], ignore_index=True)
-
-    # Save results to CSV
-    results_df.to_csv(f'{name}.csv', index=False)
-    print("Processing complete. Results saved to crqa_results_all_pairs.csv")
-
-    # Display sample of the results
-    print("\nSample of the results DataFrame:")
-    print(results_df.head())
-
-# results_df = pd.read_csv('results/CRQA_gridsearch_fine.csv')
-# import pandas as pd
-
-# # Filter for radii 0.1-0.5 with 0.1 increments
-# radius_range = [0.1,0.15,  0.2,0.25,  0.3,0.35,  0.4, 0.45, 0.5]
-# filtered_df = results_df[results_df['radius'].isin(radius_range)]
-
-# # Create pivot table with mean RR values
-# summary_table = (filtered_df
-#                  .groupby(['method', 'component_factor', 'condition', 'non_event_matches', 'radius'])
-#                  ['RR'].mean()
-#                  .unstack('radius')
-#                  .reset_index()
-#                  .round(3)
-#                  .sort_values(['method', 'component_factor', 'condition', 'non_event_matches'])
-#                 )
-
-# # Split into CORRCA and Factors tables
-# corrca_table = summary_table[summary_table['method'] == 'corrca'].drop('method', axis=1)
-# factor_table = summary_table[summary_table['method'] == 'factor'].drop('method', axis=1)
-
-# # Format column order
-# column_order = ['component_factor', 'condition', 'non_event_matches'] + radius_range
-
-# def print_table(df, title):
-#     print(f"\n{'='*50}\n{title}\n{'='*50}")
-#     print(df[column_order].to_string(index=False, float_format=lambda x: f"{x:.3f}"))
-
-# # Print formatted tables
-# print_table(corrca_table, "CORRCA Components")
-# print_table(factor_table, "Facial Factors")
-
-# # Save to CSV
-# summary_table.to_csv("crqa_radius_summary_0.1-0.5.csv", index=False)
