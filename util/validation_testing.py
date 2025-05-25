@@ -267,3 +267,12 @@ def significance(df, debug=False, column='score'):
         print("\n")
         print(significant)
     return significant
+def process_dataframe(df, version_name, debug=False):
+    """Helper function to process and validate dataframe."""
+    df_validation = statistical_factor_analysis_aggregated(df, debug=debug)
+    df_significant = df_validation[df_validation['p_fdr'] < 0.05]
+    combinations = df_significant[['factor', 'comparison', 'p_value']].drop_duplicates()
+    combinations['version'] = version_name
+    if debug:
+        print(f"Remaining factors for {version_name}: {combinations['factor'].unique()}\n")
+    return df_validation
