@@ -64,6 +64,7 @@ def crqa_lag_analysis(p1, p2,
     
     # Compute full distance matrix
     dist_matrix = cdist(p1, p2, metric='euclidean')
+    recurrence = dist_matrix < radius
     overall_rr = np.mean(dist_matrix < radius)
 
     # Lag analysis
@@ -101,5 +102,6 @@ def crqa_lag_analysis(p1, p2,
         'RR': overall_rr,
         'lags': lags,
         'rr_profile': rr_profile,
-        'radius': radius
+        'radius': radius,
+        'recurrence': recurrence
     }

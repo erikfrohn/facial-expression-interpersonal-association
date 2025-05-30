@@ -1,8 +1,8 @@
-zoom,phase,beeps,score,c1,c2,c3,compound,f2
-True,instructional_video_0,,,0.034,0.092,0.127,0.0852,0.4558
-True,discussion_phase_1,,,0.0661,0.0792,0.0996,0.2092,0.3451
-True,reschu_run_0,True,6,0.053,0.0739,0.1,0.1781,0.3742
-True,reschu_run_1,False,8,0.0561,0.0645,0.0735,0.1462,0.3238
-True,reschu_run_2,True,9,0.0416,0.0526,0.111,0.0864,0.3061
-True,reschu_run_6,True,11,0.0265,0.0725,0.0655,0.0524,0.2143
-True,reschu_run_7,False,18,0.0466,0.0391,0.0598,0.1617,0.3107
+zoom,phase,beeps,score,f1,f2,f3,f4,f5,f6
+True,instructional_video_0,,,0.0004,0.0691,0.043,0.005,0.0401,0.0456
+True,reschu_run_0,True,6,0.0006,0.0456,0.0138,0.0131,0.0231,0.0474
+True,reschu_run_1,False,8,0.0006,0.0484,0.0158,0.0231,0.0234,0.0322
+True,reschu_run_2,True,9,0.0001,0.0206,0.0145,0.0354,0.0469,0.0502
+True,discussion_phase_1,,,0.0005,0.0453,0.0102,0.0138,0.0368,0.0153
+True,reschu_run_6,True,11,0.0007,0.0186,0.0156,0.0078,0.0241,0.0092
+True,reschu_run_7,False,18,0.0006,0.041,0.0202,0.0224,0.0267,0.0181

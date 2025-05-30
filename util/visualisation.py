@@ -316,3 +316,54 @@ def delay_profile(df):
             lags=lags,
             title=f'RR profile for {f}'
     )
+        
+
+
+def plot_crp_with_signals(p1, p2, recurrence_matrix, title='Cross-Recurrence Plot with Time Series', figsize=(8, 8)):
+    """
+    Plots the CRP with the original time series (p1 and p2) shown along the axes.
+
+    Parameters:
+        p1 (1D array): Time series of person 1.
+        p2 (1D array): Time series of person 2.
+        recurrence_matrix (2D bool array): CRP from crqa_lag_analysis.
+        title (str): Plot title.
+        figsize (tuple): Size of the entire plot.
+    """
+    import matplotlib.gridspec as gridspec
+
+    # Ensure 1D input for plotting
+    p1 = p1.squeeze()
+    p2 = p2.squeeze()
+
+    fig = plt.figure(figsize=figsize)
+    gs = gridspec.GridSpec(2, 2, width_ratios=[1, 4], height_ratios=[4, 1],
+                           wspace=0.05, hspace=0.05)
+
+    # Top-left: empty (can be used for legends or stats if desired)
+    ax_empty = fig.add_subplot(gs[0, 0])
+    ax_empty.axis('off')
+
+    # Top-right: CRP
+    ax_crp = fig.add_subplot(gs[0, 1])
+    ax_crp.imshow(recurrence_matrix, origin='lower', cmap='Greys', interpolation='nearest', aspect='equal')
+    ax_crp.plot(range(min(len(p1), len(p2))), range(min(len(p1), len(p2))), 'r--', alpha=0.4)
+    ax_crp.set_ylabel("Time (Person 1)")
+    ax_crp.set_xticks([])
+
+    # Bottom-right: Person 2 signal
+    ax_bottom = fig.add_subplot(gs[1, 1], sharex=ax_crp)
+    ax_bottom.plot(p2, color='blue')
+    ax_bottom.set_xlabel("Time (Person 2)")
+    ax_bottom.set_yticks([])
+
+    # Left (rotated): Person 1 signal
+    ax_left = fig.add_subplot(gs[0, 0], sharey=ax_crp)
+    ax_left.plot(p1, range(len(p1)), color='green')  # Horizontal axis is value
+    ax_left.invert_xaxis()
+    ax_left.set_xticks([])
+    ax_left.set_ylabel("")
+
+    fig.suptitle(title, fontsize=14)
+    plt.tight_layout()
+    plt.show()
