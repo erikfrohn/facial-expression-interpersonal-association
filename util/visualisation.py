@@ -3,99 +3,32 @@ import matplotlib.pyplot as plt
 from scipy.stats import t
 import seaborn as sns
 import pandas as pd
+import pandas as pd
+import numpy as np
+from collections import defaultdict
+import os
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.stats import linregress
+from scipy.stats import spearmanr
+import statsmodels.formula.api as smf
 
 FACTORS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
-def old_plot_multicondition_rr_profiles(condition_data, lags, 
-                                  colors=['#1f77b4', '#ff7f0e', '#2ca02c'],
-                                  condition_names=['Condition 1', 'Condition 2', 'Condition 3'],
-                                  title='Recurrence Rate Profiles by Condition',
-                                  xlabel='Lag (seconds)',
-                                  ylabel='Recurrence Rate (RR)'):
-    """
-    Plot RR profiles for three conditions with 95% CIs in one plot.
-    
-    Parameters:
-    condition_data (list): List of three lists, each containing RR profiles for one condition
-    lags (array): Time lags in seconds (x-axis values)
-    colors (list): Colors for each condition
-    condition_names (list): Names for each condition
-    title, xlabel, ylabel (str): Plot labels
-    """
-    plt.figure(figsize=(12, 6))
-    
-    for i, (rr_profiles, color, name) in enumerate(zip(condition_data, colors, condition_names)):
-        # Convert to numpy array (n_dyads × n_lags)
-        rr_matrix = np.array(rr_profiles)
-        
-        # Calculate statistics
-        mean_rr = np.mean(rr_matrix, axis=0)
-        sem = np.std(rr_matrix, axis=0, ddof=1) / np.sqrt(len(rr_profiles))
-        ci_width = t.ppf(0.975, len(rr_profiles)-1) * sem
-        
-        # Plot confidence interval (lighter shade)
-        plt.fill_between(lags, 
-                        mean_rr - ci_width,
-                        mean_rr + ci_width,
-                        color=color, alpha=0.15,
-                        label='_nolegend_')
-        
-        # Plot mean line
-        plt.plot(lags, mean_rr, color=color, 
-                 linewidth=2.5, 
-                 alpha=0.9,
-                 marker='o' if i==0 else 's' if i==1 else '^',
-                 markersize=5,
-                 markevery=5,
-                 label=name)
-        
-        # Mark peak lag
-        peak_lag = lags[np.argmax(mean_rr)]
-        plt.scatter(peak_lag, np.max(mean_rr), 
-                    color=color, marker='*', s=120,
-                    edgecolor='k', zorder=10)
-    
-    # Add reference lines and formatting
-    plt.axvline(0, color='k', linestyle='--', alpha=0.3)
-    plt.title(title, pad=20)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.grid(alpha=0.2)
-    plt.legend(framealpha=1, loc='upper right')
-    
-    # Set symmetrical x-axis if centered on 0
-    if np.min(lags) < 0 and np.max(lags) > 0:
-        xlim = max(abs(np.min(lags)), abs(np.max(lags)))
-        plt.xlim(-xlim, xlim)
-    
-    plt.tight_layout()
-    plt.show()
+
+
+FACTOR_LABELS = {
+    'f1': "Enjoyment Smile",
+    'f2': "Eyebrows Up",
+    'f3': "Mouth Open",
+    'f4': "Mouth Tightening",
+    'f5': "Eye Tightening",
+    'f6': "Mouth Frown"
+}
 
 
 
-def normalize_conditions(condition_data, target_mean=0.05):
-    """Normalize all conditions to have the same mean RR while preserving profile shapes"""
-    # Calculate current means
-    condition_means = [np.mean(np.concatenate(cond)) for cond in condition_data]
-    global_mean = np.mean(condition_means)
-    
-    # Compute scaling factors
-    scaling_factors = [target_mean / cm for cm in condition_means]
-    
-    # Apply scaling
-    normalized_data = []
-    for cond, factor in zip(condition_data, scaling_factors):
-        normalized_data.append([rr_profile * factor for rr_profile in cond])
-    
-    return normalized_data
-
-def center_conditions(condition_data):
-    """Center each condition around 0 (show change from mean)"""
-    centered_data = []
-    for cond in condition_data:
-        cond_array = np.concatenate(cond)
-        condition_mean = np.mean(cond_array)
-        centered_data.append([profile - condition_mean for profile in cond])
-    return centered_data
 
 def plot_multicondition_rr_profiles(condition_data, lags, 
                                   condition_names=['Intro (no zoom)', 'Discussion (no zoom)', 'Reschu (no zoom)',
@@ -178,14 +111,6 @@ def plot_multicondition_rr_profiles(condition_data, lags,
     plt.tight_layout()
     plt.show()
 
-
-
-import seaborn as sns
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy.stats import linregress
-
-from scipy.stats import spearmanr
 
 def plot_mixed_effects_model(df):
     # Filter only RESCHU runs
@@ -367,3 +292,172 @@ def plot_crp_with_signals(p1, p2, recurrence_matrix, title='Cross-Recurrence Plo
     fig.suptitle(title, fontsize=14)
     plt.tight_layout()
     plt.show()
+
+
+
+def calculate_non_event_match_ratio(location, feature_folder, pairs, phases, factors, threshold=0.08, debug=False):
+    total_counts = defaultdict(int)
+    nem_counts = defaultdict(int)
+
+    for pair in pairs:
+        p1, p2 = pair.split("_")
+        files = os.path.join(location, pair, feature_folder)
+
+        for phase in phases:
+            nav_file = os.path.join(files, f'pp{p1}_{phase}_factors.csv')
+            pil_file = os.path.join(files, f'pp{p2}_{phase}_factors.csv')
+
+            if not (os.path.exists(nav_file) and os.path.exists(pil_file)):
+                continue
+
+            nav = pd.read_csv(nav_file)
+            pil = pd.read_csv(pil_file)
+
+            for f in factors:
+                if f not in nav.columns or f not in pil.columns:
+                    continue
+
+                nav_vals = nav[f].dropna().values
+                pil_vals = pil[f].dropna().values
+                min_len = min(len(nav_vals), len(pil_vals))
+
+                nav_vals = nav_vals[:min_len]
+                pil_vals = pil_vals[:min_len]
+
+                total_counts[f] += min_len * 2
+                nem_counts[f] += np.sum(np.abs(nav_vals) <= threshold)
+                nem_counts[f] += np.sum(np.abs(pil_vals) <= threshold)
+
+    # Compute ratios as percentages
+    ratios = {}
+    for f in factors:
+        if total_counts[f] > 0:
+            ratios[f] = 100 * nem_counts[f] / total_counts[f]
+        else:
+            ratios[f] = None
+
+    if debug:
+        # Prepare DataFrame for plotting
+        ratio_df = pd.DataFrame({
+            'factor': [f"{f} - {FACTOR_LABELS[f]}" for f in factors if ratios[f] is not None],
+            'percentage': [ratios[f] for f in factors if ratios[f] is not None]
+        })
+
+
+        # === 3. Visualization ===
+        plt.figure(figsize=(14, 6))
+        sns.barplot(data=ratio_df, x='factor', y='percentage', ci=None)
+        plt.ylabel('Percentage of Non-Event Matches')
+        plt.xlabel('Facial Factor')
+        plt.title('Proportion of Neutral Facial Expressions per Factor')
+        for i, row in ratio_df.iterrows():
+            plt.text(i, row['percentage'] + 1, f"{row['percentage']:.1f}%", ha='center', fontsize=11)
+        plt.ylim(0, max(ratio_df['percentage']) + 10)
+        plt.grid(axis='y', linestyle='--', alpha=0.5)
+        plt.tight_layout()
+        plt.savefig("NEM count per factor.png", dpi=300, bbox_inches='tight')
+
+    return ratios
+
+
+
+
+# Define a function that performs the unified analysis
+def unified_mixed_model_analysis(df, response_variable, save_fig=False, output_path="img/"):
+
+    # 1. Filter for RESCHU run phases
+    reschu_df = df[df['phase'].str.contains('reschu_run')].copy()
+    reschu_df = reschu_df.dropna(subset=[response_variable])
+    reschu_df['run_number'] = reschu_df['phase'].str.extract(r'(\d+)$')[0]
+
+    # 2. Validate necessary columns
+    if 'pair' not in reschu_df.columns:
+        raise ValueError("Dataframe must contain a 'pair' column for grouping.")
+
+    pairs = reschu_df['pair'].unique()
+    palette = sns.color_palette("husl", len(pairs))
+    pair_colors = dict(zip(pairs, palette))
+
+    # 3. Run mixed models and collect results
+    results = []
+    for factor in FACTORS:
+        formula = f"{response_variable} ~ {factor} * zoom"
+        try:
+            model = smf.mixedlm(formula, data=reschu_df, groups=reschu_df['pair'])
+            fit = model.fit()
+            results.append({
+                'factor': factor,
+                'global_slope': fit.params[factor],
+                'global_p': fit.pvalues[factor],
+                'zoom_slope': fit.params.get(f"{factor}:zoom[T.True]", np.nan),
+                'zoom_p': fit.pvalues.get(f"{factor}:zoom[T.True]", np.nan)
+            })
+        except Exception as e:
+            print(f"Error for {factor}: {e}")
+            results.append({'factor': factor, 'global_slope': np.nan, 'global_p': np.nan, 'zoom_slope': np.nan, 'zoom_p': np.nan})
+
+    results_df = pd.DataFrame(results)
+
+    # 4. Plot results
+    fig, axs = plt.subplots(2, 3, figsize=(20, 12))
+    axs = axs.flatten()
+
+    colors = {'True': '#1f77b4', 'False': '#ff7f0e'}
+    markers = {'True': 'o', 'False': 's'}
+
+    for i, factor in enumerate(FACTORS):
+        ax = axs[i]
+        for zoom in [True, False]:
+            subset = reschu_df[reschu_df['zoom'] == zoom]
+            ax.scatter(
+                subset[factor],
+                subset[response_variable],
+                c=colors[str(zoom)],
+                marker=markers[str(zoom)],
+                alpha=0.6,
+                edgecolor='w',
+                linewidth=0.5,
+                label=f"Zoom={zoom}"
+            )
+            sns.regplot(
+                x=subset[factor],
+                y=subset[response_variable],
+                ax=ax,
+                scatter=False,
+                color=colors[str(zoom)],
+                ci=95,
+                line_kws={'lw': 2, 'ls': '-' if zoom else '--'}
+            )
+
+        # Add model annotations
+        row = results_df[results_df['factor'] == factor].iloc[0]
+        if row['global_p'] >= 0.05:
+            annotation = (f"Global β: {row['global_slope']:.2f} (p={row['global_p']:.3f})\n"
+                        f"Zoom Δβ: {row['zoom_slope']:.2f} (p={row['zoom_p']:.3f})")
+        else:
+            annotation = (f"Global β: {row['global_slope']:.2f} (p={row['global_p']:.3f}*)\n"
+                        f"Zoom Δβ: {row['zoom_slope']:.2f} (p={row['zoom_p']:.3f})")
+
+        ax.text(0.05, 0.95, annotation, transform=ax.transAxes,
+                va='top', ha='left', fontsize=10,
+                bbox=dict(facecolor='white', alpha=0.8))
+
+        ax.set_title(f"{factor}: {FACTOR_LABELS.get(factor, factor)}")
+        ax.set_xlabel("Recurrence Rate (RR)")
+        ax.set_ylabel("Score" if i in [0, 3] else "")
+
+    # Shared legend
+    handles = [
+        plt.Line2D([], [], color=colors['True'], marker='o', ls='-', label='Zoom=True'),
+        plt.Line2D([], [], color=colors['False'], marker='s', ls='--', label='Zoom=False')
+    ]
+    fig.legend(handles=handles, loc='lower center', ncol=2, bbox_to_anchor=(0.5, -0.03))
+
+    plt.tight_layout()
+    plt.suptitle("Mixed Effects Modeling of the Relation between Score and RR, moderated by Zoom", fontsize=16, y=1.02)
+
+    if save_fig:
+        fig.savefig(f"{output_path}{response_variable}_zoom_FACE.png", dpi=300, bbox_inches='tight')
+
+    plt.show()
+    return results_df

@@ -196,8 +196,8 @@ def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
         factor_data = results_df[results_df['factor'] == factor]
         plot_component(ax, factor_data, f'{factor}: {FACTOR_LABELS[factor]}')
 
-
-    fig.suptitle("Factor radius gridsearch (goal RR = 2-5%)", fontsize=16, y=0.95)
+    plt.tight_layout()
+    fig.suptitle("Factor radius gridsearch (goal RR = 2-5%)", fontsize=16, y=1.04)
     plt.savefig(f'{name}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
