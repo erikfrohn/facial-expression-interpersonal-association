@@ -249,3 +249,110 @@ def unified_mixed_model_analysis(df, response_variable, save_fig=False, output_p
 
     plt.show()
     return results_df
+
+def unified_mixed_model_analysis(df, response_variable, save_fig=False, output_path="img/"):
+
+    # 1. Filter for RESCHU run phases
+    reschu_df = df[df['phase'].str.contains('reschu_run')].copy()
+    reschu_df = reschu_df.dropna(subset=[response_variable])
+    reschu_df['run_number'] = reschu_df['phase'].str.extract(r'(\d+)$')[0]
+
+    # 2. Validate necessary columns
+    if 'pair' not in reschu_df.columns:
+        raise ValueError("Dataframe must contain a 'pair' column for grouping.")
+
+    pairs = reschu_df['pair'].unique()
+    palette = sns.color_palette("husl", len(pairs))
+    pair_colors = dict(zip(pairs, palette))
+
+    if response_variable in ['Empathy', 'Cooperation', 'Cohesion']:
+        print(f"[INFO] '{response_variable}' detected as dyad-level (flat). Using OLS.")
+        # Aggregate predictors and keep response
+        reschu_df = reschu_df.groupby(['pair', 'zoom']).agg(
+            {**{f: 'mean' for f in FACTORS}, response_variable: 'first'}
+        ).reset_index()
+
+    # 4. Run models and collect results
+    results = []
+    for factor in FACTORS:
+        formula = f"{response_variable} ~ {factor} * zoom"
+        try:
+            if response_variable in ['Empathy', 'Cooperation', 'Cohesion']:
+                model = smf.ols(formula, data=reschu_df).fit()
+            else:
+                model = smf.mixedlm(formula, data=reschu_df, groups=reschu_df['pair']).fit()
+
+            results.append({
+                'factor': factor,
+                'global_slope': model.params.get(factor, np.nan),
+                'global_p': model.pvalues.get(factor, np.nan),
+                'zoom_slope': model.params.get(f"{factor}:zoom[T.True]", np.nan),
+                'zoom_p': model.pvalues.get(f"{factor}:zoom[T.True]", np.nan)
+            })
+        except Exception as e:
+            print(f"Error for {factor}: {e}")
+            results.append({'factor': factor, 'global_slope': np.nan, 'global_p': np.nan, 'zoom_slope': np.nan, 'zoom_p': np.nan})
+
+    results_df = pd.DataFrame(results)
+
+    # 5. Plot results
+    fig, axs = plt.subplots(2, 3, figsize=(20, 12))
+    axs = axs.flatten()
+
+    colors = {'True': '#1f77b4', 'False': '#ff7f0e'}
+    markers = {'True': 'o', 'False': 's'}
+
+    for i, factor in enumerate(FACTORS):
+        ax = axs[i]
+        for zoom in [True, False]:
+            subset = reschu_df[reschu_df['zoom'] == zoom]
+            ax.scatter(
+                subset[factor],
+                subset[response_variable],
+                c=colors[str(zoom)],
+                marker=markers[str(zoom)],
+                alpha=0.6,
+                edgecolor='w',
+                linewidth=0.5,
+                label=f"Zoom={zoom}"
+            )
+            if len(subset) > 1:
+                sns.regplot(
+                    x=subset[factor],
+                    y=subset[response_variable],
+                    ax=ax,
+                    scatter=False,
+                    color=colors[str(zoom)],
+                    ci=95,
+                    line_kws={'lw': 2, 'ls': '-' if zoom else '--'}
+                )
+
+        # Add model annotations
+        row = results_df[results_df['factor'] == factor].iloc[0]
+        annotation = (f"Global β: {row['global_slope']:.2f} (p={row['global_p']:.3f})\n"
+                      f"Zoom Δβ: {row['zoom_slope']:.2f} (p={row['zoom_p']:.3f})")
+        weight = 'bold' if row['global_p'] < 0.05 else 'regular'
+
+        ax.text(0.05, 0.95, annotation, transform=ax.transAxes,
+                va='top', ha='left', fontsize=10,
+                bbox=dict(facecolor='white', alpha=0.8), weight=weight)
+
+        ax.set_title(f"{factor}: {FACTOR_LABELS[factor]}", fontsize=16)
+        ax.set_xlabel("Recurrence Rate (RR)")
+        ax.set_ylabel(response_variable)
+
+    # Shared legend
+    handles = [
+        plt.Line2D([], [], color=colors['True'], marker='o', ls='-', label='Zoom=True'),
+        plt.Line2D([], [], color=colors['False'], marker='s', ls='--', label='Zoom=False')
+    ]
+    fig.legend(handles=handles, loc='lower center', ncol=2, bbox_to_anchor=(0.5, -0.03))
+
+    plt.tight_layout()
+    plt.suptitle(f"Modeling: {response_variable} ~ FACE Factors × Zoom", fontsize=24, y=1.02)
+
+    if save_fig:
+        fig.savefig(f"{output_path}{response_variable}_zoom_FACE.png", dpi='figure', bbox_inches='tight')
+
+    plt.show()
+    return results_df
