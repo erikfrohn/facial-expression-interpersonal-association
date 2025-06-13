@@ -21,11 +21,3 @@ def au_to_factors(df):
     })
     
     return factors_df
-
-def make_equal_length(file_location, df_nav, df_pil):
-    if len(df_nav) != len(df_pil):
-        min_length = min(len(df_nav), len(df_pil))
-        df_nav = df_nav.iloc[:min_length]
-        df_pil = df_pil.iloc[:min_length]
-        print(f"files of pairs in {file_location} do not have the same amount of datapoints - temporary fix has made them equal length")
-    return df_nav, df_pil

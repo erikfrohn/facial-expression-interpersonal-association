@@ -6,11 +6,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-
-
 LOCATION = "data"
 FEATURE_FOLDER = "features"
-PHASES = [f'{name}_{i}' for name, num in  [("instructional_video", 1), ("discussion_phase", 2), ('reschu_run',8)] for i in range(num)]#, ("reschu_run", 8)] for i in range(num)]
+PHASES = [f'{name}_{i}' for name, num in  [("instructional_video", 1), ("discussion_phase", 2), ('reschu_run',8)] for i in range(num)]
 FACTORS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
 
 FACTOR_LABELS = {
@@ -123,10 +121,13 @@ def crqa_radius_gridsearch(name = "gridsearch", radii = [0.1, 0.2, 0.3, 0.4, 0.5
     print("\nSample of the results DataFrame:")
     print(results_df.head())
 
+
+
+# THIS IS ONLY FOR REAL DATA GRIDSEARCH (SEE ARCHIVE FOR THE REAL / FAKE COMPARISON GRIDSEARCH)
 def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
 
     # Set up plot grid
-    fig = plt.figure(figsize=(24, 18))
+    fig = plt.figure(figsize=(14, 10))
     sns.set(style="whitegrid", font_scale=1.0)
     plt.subplots_adjust(hspace=0.4, wspace=0.3)
 
@@ -136,7 +137,7 @@ def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
     # Common plotting function
     def plot_component(ax, data, title):
         # Calculate statistics
-        agg_data = data.groupby(['radius', 'condition', 'non_event_matches'])['RR'].agg(['mean', 'std', 'count']).reset_index()
+        agg_data = data.groupby(['radius', 'non_event_matches'])['RR'].agg(['mean', 'std', 'count']).reset_index()
         agg_data['ci'] = 1.96 * agg_data['std'] / np.sqrt(agg_data['count'])
         
         # Plot lines with error bands
@@ -144,9 +145,9 @@ def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
             data=agg_data,
             x='radius',
             y='mean',
-            hue='condition',
+            #hue='condition',
             style='non_event_matches',
-            palette={'real': '#1f77b4', 'fake': '#ff7f0e'},
+            #palette={'real': '#1f77b4', 'fake': '#ff7f0e'},
             style_order=['included', 'excluded'],
             markers=True,
             dashes=[(1,0), (2,2)],
@@ -156,17 +157,17 @@ def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
         )
         
         # Add error bands
-        for cond in ['real', 'fake']:
-            for match in ['included', 'excluded']:
-                subset = agg_data[(agg_data['condition'] == cond) & 
-                                (agg_data['non_event_matches'] == match)]
-                ax.fill_between(
-                    subset['radius'],
-                    subset['mean'] - subset['ci'],
-                    subset['mean'] + subset['ci'],
-                    alpha=0.2,
-                    color={'real': '#1f77b4', 'fake': '#ff7f0e'}[cond]
-                )
+
+        for match in ['included', 'excluded']:
+            subset = agg_data[
+                            (agg_data['non_event_matches'] == match)]
+            ax.fill_between(
+                subset['radius'],
+                subset['mean'] - subset['ci'],
+                subset['mean'] + subset['ci'],
+                alpha=0.2,
+                color='#1f77b4'
+            )
         # Add reference lines
         ax.axhline(y=0.02, color='gray', linestyle=':', linewidth=1, alpha=0.7)
         ax.axhline(y=0.05, color='gray', linestyle=':', linewidth=1, alpha=0.7)
@@ -175,15 +176,15 @@ def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
         ax.text(0.5, 0.021, 'RR=0.02', color='gray', ha='center', va='bottom', fontsize=9)
         ax.text(0.5, 0.051, 'RR=0.05', color='gray', ha='center', va='bottom', fontsize=9)
         
-        ax.set_title(title)
-        ax.set_xlabel('Radius', labelpad=8)
-        ax.set_ylabel('RR ± 95% CI', labelpad=8)
+        ax.set_title(title, fontsize=16)
+        ax.set_xlabel('Radius', labelpad=8, fontsize=12)
+        ax.set_ylabel('RR ± 95% CI', labelpad=8, fontsize=12)
         ax.set_ylim(-0.05, 0.4)
         ax.grid(True, alpha=0.3)
         
         # Only show legend on first plot
         if ax == axes[0,2]:
-            ax.legend()
+            ax.legend().remove()
         else:
             ax.get_legend().remove()
 
@@ -195,12 +196,13 @@ def plot_crqa_radius_gridsearch(results_df, name='gridsearch'):
         
         factor_data = results_df[results_df['factor'] == factor]
         plot_component(ax, factor_data, f'{factor}: {FACTOR_LABELS[factor]}')
-
+    
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles, labels, title='NEM included/excluded', loc='upper center', bbox_to_anchor=(0.5, 1.06), ncol=6)
     plt.tight_layout()
-    fig.suptitle("Factor radius gridsearch (goal RR = 2-5%)", fontsize=16, y=1.04)
-    plt.savefig(f'{name}.png', dpi=300, bbox_inches='tight')
+    fig.suptitle("Factor radius gridsearch (goal RR = 2-5%)", fontsize=24, y=1.10)
+    plt.savefig(f'{name}.png', dpi='figure', bbox_inches='tight')
     plt.show()
-
 
 def factor_gridsearch(AVAILABLE_PAIRS, name = "gridsearch"):
     # Initialize DataFrame to store all results

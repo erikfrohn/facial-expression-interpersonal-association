@@ -1,73 +1,10 @@
 import pandas as pd
-import numpy as np
-import statsmodels.formula.api as smf
 
 from statsmodels.stats.multitest import fdrcorrection
 from scipy.stats import mannwhitneyu 
 from scipy.stats import spearmanr  
 
-COMPONENTS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
-
-def statistical_factor_analysis_lme(df, debug=False, nem=False):
-    results = []
-
-    for factor in df['factor'].unique():
-        subset = df[df['factor'] == factor]
-
-        # Optional: subset by non_event_matches
-        if nem:
-            for ne_match in ['included', 'excluded']:
-                ne_subset = subset[subset['non_event_matches'] == ne_match]
-                if ne_subset['condition'].nunique() < 2:
-                    if debug:
-                        print(f"Skipping factor={factor}, ne_match={ne_match} due to lack of condition variation.")
-                    continue
-
-                model = smf.mixedlm("RR ~ condition", ne_subset, groups=ne_subset["pair"])
-                result = model.fit(reml=False)  # Use ML not REML for fixed effects comparison
-
-                condition_coef = result.params.get('condition[T.real]', float('nan'))
-                p_value = result.pvalues.get('condition[T.real]', float('nan'))
-
-                results.append({
-                    'factor': factor,
-                    'comparison': f'real_vs_fake_{ne_match}',
-                    'coef': condition_coef,
-                    'p_value': p_value
-                })
-        else:
-            if subset['condition'].nunique() < 2:
-                if debug:
-                    print(f"Skipping factor={factor} due to lack of condition variation.")
-                continue
-
-            model = smf.mixedlm("RR ~ condition", subset, groups=subset["pair"])
-            result = model.fit(reml=False)
-
-            condition_coef = result.params.get('condition[T.real]', float('nan'))
-            p_value = result.pvalues.get('condition[T.real]', float('nan'))
-
-            results.append({
-                'factor': factor,
-                'comparison': 'real_vs_fake',
-                'coef': condition_coef,
-                'p_value': p_value
-            })
-
-    results_df = pd.DataFrame(results)
-
-    # FDR correction
-    if not results_df.empty:
-        _, results_df['p_fdr'] = fdrcorrection(results_df['p_value'])
-    else:
-        results_df['p_fdr'] = []
-
-    # Optional debug print
-    if debug:
-        print("\nMixed Effects Model Results:")
-        print(results_df.sort_values('p_fdr'))
-
-    return results_df
+FACTORS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
 
 def statistical_factor_analysis_aggregated(df, debug=False):
     """
@@ -113,55 +50,7 @@ def statistical_factor_analysis_aggregated(df, debug=False):
 
     return results_df
 
-def statistical_factor_analysis(df, debug=False, nem = False):
-    # Initialize results storage
-    results = []
-
-    # Loop through each factor
-    for factor in df['factor'].unique():
-        # Subset data for the current factor
-        subset = df[df['factor'] == factor]
-        
-        # Option 1: Test real vs. fake (ignore non_event_matches)
-        if not nem: 
-            real = subset[subset['condition'] == 'real']['RR']
-            fake = subset[subset['condition'] == 'fake']['RR']
-            stat, p = mannwhitneyu(real, fake, alternative='two-sided')
-            results.append({
-                'factor': factor,
-                'comparison': 'real_vs_fake',
-                'statistic': stat,
-                'p_value': p
-            })
-        
-        # # # Option 2: Stratify by non_event_matches (uncomment if needed)
-        if nem:
-            for ne_match in ['included', 'excluded']:
-                ne_subset = subset[subset['non_event_matches'] == ne_match]
-                real = ne_subset[ne_subset['condition'] == 'real']['RR']
-                fake = ne_subset[ne_subset['condition'] == 'fake']['RR']
-                stat, p = mannwhitneyu(real, fake, alternative='two-sided')
-                results.append({
-                    'factor': factor,
-                    'comparison': f'real_vs_fake_{ne_match}',
-                    'statistic': stat,
-                    'p_value': p
-                })
-
-    # Convert results to DataFrame
-    results_df = pd.DataFrame(results)
-
-    # Apply FDR correction to all p-values
-    _, results_df['p_fdr'] = fdrcorrection(results_df['p_value'])
-
-    # Print significant results (FDR-corrected p < 0.05)
-    significant = results_df[results_df['p_fdr'] < 0.05]
-    if debug:
-        print("Significant comparisons (Mann-Whitney U, FDR-corrected):")
-        print(results_df.sort_values('p_fdr'))
-    return results_df
-
-def run_significance_tests(df, dependent_var, components=COMPONENTS, debug=False):
+def run_significance_tests(df, dependent_var, components=FACTORS, debug=False):
     """
     Run significance tests for a dependent variable against components in different groupings
     
@@ -240,7 +129,7 @@ def significance(df, debug=False, column='score'):
     """
     significant = pd.DataFrame(columns=['setting', 'component', 'rho', 'p'])
     if debug:  print(f"No partition:")
-    for comp in COMPONENTS:
+    for comp in FACTORS:
         rho, p = spearmanr(df[comp], df[column])
         if p < 0.05:
             significant.loc[len(significant)] = ['all_reschu', comp, rho, p]
@@ -249,7 +138,7 @@ def significance(df, debug=False, column='score'):
     for condition in [True, False]:
         subset = df[df['zoom'] == condition]
         if debug: print(f"\nZoom = {condition}:")
-        for comp in COMPONENTS:
+        for comp in FACTORS:
             rho, p = spearmanr(subset[comp], subset[column])
             if p < 0.05:
                 significant.loc[len(significant)] = [f'zoom = {condition}', comp, rho, p]
@@ -258,7 +147,7 @@ def significance(df, debug=False, column='score'):
     for i in range(8):
         subset = df[df['phase'] == f'reschu_run_{i}']
         if debug: print(f"\nPhase = reschu_run_{i}:")
-        for comp in COMPONENTS:
+        for comp in FACTORS:
             rho, p = spearmanr(subset[comp], subset[column])
             if p < 0.05:
                 significant.loc[len(significant)] = [f'reschu_run_{i}', comp, rho, p]
@@ -267,6 +156,7 @@ def significance(df, debug=False, column='score'):
         print("\n")
         print(significant)
     return significant
+
 def process_dataframe(df, version_name, debug=False):
     """Helper function to process and validate dataframe."""
     df_validation = statistical_factor_analysis_aggregated(df, debug=debug)
