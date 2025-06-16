@@ -1,19 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import t
 import seaborn as sns
 import pandas as pd
-import pandas as pd
-import numpy as np
 from collections import defaultdict
 import os
 
-import seaborn as sns
-import matplotlib.pyplot as plt
-import numpy as np
+
 from scipy.stats import linregress
 from scipy.stats import spearmanr
 import statsmodels.formula.api as smf
+
 
 import matplotlib.gridspec as gridspec
 
@@ -355,4 +351,116 @@ def unified_mixed_model_analysis(df, response_variable, save_fig=False, output_p
         fig.savefig(f"{output_path}{response_variable}_zoom_FACE.png", dpi='figure', bbox_inches='tight')
 
     plt.show()
+    return results_df
+
+
+from statsmodels.stats.multitest import multipletests
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy.stats import spearmanr
+from statsmodels.formula.api import mixedlm, ols
+
+def unified_rr_tp_analysis_fdr(df, response_variable, save_fig=False, output_path="img/"):
+    # Filter RESCHU runs
+    reschu_df = df[df['phase'].str.contains('reschu_run')].copy()
+    reschu_df['run_number'] = reschu_df['phase'].str.extract(r'(\d+)$')[0]
+    reschu_df = reschu_df.dropna(subset=[response_variable])
+
+    if 'pair' not in reschu_df.columns:
+        raise ValueError("Dataframe must contain a 'pair' column for grouping.")
+
+
+    if response_variable in ['Empathy', 'Cooperation', 'Cohesion']:
+        print(f"[INFO] '{response_variable}' detected as dyad-level (flat). Using OLS.")
+        reschu_df = reschu_df.groupby('pair').agg(
+            {**{f: 'mean' for f in FACTORS}, response_variable: 'first'}
+        ).reset_index()
+
+    # Scale predictors and response
+    for col in FACTORS + [response_variable]:
+        reschu_df[f'{col}_scaled'] = (reschu_df[col] - reschu_df[col].mean()) / reschu_df[col].std()
+
+    # Run models
+    results = []
+    for factor in FACTORS:
+        factor_scaled = f'{factor}_scaled'
+        formula = f"{response_variable}_scaled ~ {factor_scaled}"
+        try:
+            if response_variable in ['Empathy', 'Cooperation', 'Cohesion']:
+                model = ols(formula, data=reschu_df).fit()
+            else:
+                model = mixedlm(formula, data=reschu_df, groups=reschu_df['pair']).fit()
+            coef = model.params[factor_scaled]
+            pval = model.pvalues[factor_scaled]
+            results.append({'factor': factor, 'coef': coef, 'pval': pval})
+            print(f"{factor}: coef = {coef:.4f}, p = {pval:.4g}")
+        except Exception as e:
+            print(f"Error fitting model for {factor}: {e}")
+            results.append({'factor': factor, 'coef': np.nan, 'pval': np.nan})
+
+    results_df = pd.DataFrame(results)
+
+    # Apply FDR correction
+    pvals = results_df['pval'].dropna().values
+    rejected, pvals_fdr, _, _ = multipletests(pvals, alpha=0.05, method='fdr_bh')
+
+    results_df['pval_FDR'] = np.nan
+    results_df['significant_FDR'] = False
+    results_df.loc[results_df['pval'].notna(), 'pval_FDR'] = pvals_fdr
+    results_df.loc[results_df['pval'].notna(), 'significant_FDR'] = rejected
+
+    # Print table with FDR info
+    print("\nResults with FDR correction:")
+    print(results_df[['factor', 'coef', 'pval', 'pval_FDR', 'significant_FDR']])
+
+    # Plot
+    plt.figure(figsize=(20, 12))
+    for i, factor in enumerate(FACTORS, 1):
+        plt.subplot(2, 3, i)
+        sns.scatterplot(
+            data=reschu_df,
+            x=factor,
+            y=response_variable,
+            hue='pair' if not response_variable in ['Empathy', 'Cooperation', 'Cohesion'] else None,
+            palette='husl' if not response_variable in ['Empathy', 'Cooperation', 'Cohesion'] else None,
+            s=80,
+            edgecolor='w',
+            linewidth=0.5,
+            legend=False
+        )
+        if len(reschu_df) > 1:
+            sns.regplot(
+                data=reschu_df,
+                x=factor,
+                y=response_variable,
+                scatter=False,
+                ci=95,
+                line_kws={'color': 'black', 'lw': 2, 'ls': '--'}
+            )
+        rho, p = spearmanr(reschu_df[factor], reschu_df[response_variable])
+        p_text = "p < 0.001*" if p < 0.001 else f"p = {p:.3f}*" if p < 0.05 else f"p = {p:.3f}"
+        weight = 'bold' if p < 0.05 else 'regular'
+        plt.text(
+            0.05, 0.95,
+            f"Spearman's ρ = {rho:.2f}\n{p_text}",
+            transform=plt.gca().transAxes,
+            va='top', ha='left',
+            bbox=dict(facecolor='white', alpha=0.8),
+            weight=weight
+        )
+        plt.title(f"{response_variable.capitalize()} vs {factor}: {FACTOR_LABELS.get(factor, factor)}", fontsize=14)
+        plt.xlabel('Mean activation')
+        plt.ylabel(response_variable.capitalize())
+        plt.grid(alpha=0.3)
+
+    plt.tight_layout()
+    plt.suptitle(f"Relation between {response_variable} and RR (FDR-corrected)", fontsize=20, y=1.02)
+
+    if save_fig:
+        plt.savefig(f"{output_path}{response_variable}_RR_model_FDR.png", dpi=300, bbox_inches='tight')
+
+    plt.show()
+
     return results_df
