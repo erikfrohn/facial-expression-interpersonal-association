@@ -4,14 +4,10 @@ import seaborn as sns
 import pandas as pd
 from collections import defaultdict
 import os
-
-
-from scipy.stats import linregress
-from scipy.stats import spearmanr
-import statsmodels.formula.api as smf
-
-
 import matplotlib.gridspec as gridspec
+
+from statsmodels.stats.multitest import multipletests
+from statsmodels.formula.api import mixedlm, ols
 
 FACTORS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']
 
@@ -144,12 +140,6 @@ def calculate_non_event_match_ratio(location, feature_folder, pairs, phases, fac
 
     return ratios
 
-from statsmodels.stats.multitest import multipletests
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
-from statsmodels.formula.api import mixedlm, ols
-
 def unified_mixed_model_analysis_fdr(df, response_variable, save_fig=False, output_path="img/"):
     # 1. Filter for RESCHU run phases
     reschu_df = df[df['phase'].str.contains('reschu_run')].copy()
@@ -281,22 +271,6 @@ def unified_mixed_model_analysis_fdr(df, response_variable, save_fig=False, outp
     plt.show()
 
     return results_df
-
-
-from statsmodels.stats.multitest import multipletests
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from scipy.stats import spearmanr
-from statsmodels.formula.api import mixedlm, ols
-
-from statsmodels.stats.multitest import multipletests
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from statsmodels.formula.api import mixedlm, ols
 
 def unified_rr_tp_analysis_fdr(df, response_variable, save_fig=False, output_path="img/"):
     # Filter RESCHU runs
