@@ -136,11 +136,11 @@ def calculate_non_event_match_ratio(location, feature_folder, pairs, phases, fac
         plt.ylim(0, max(ratio_df['percentage']) + 10)
         plt.grid(axis='y', linestyle='--', alpha=0.5)
         plt.tight_layout()
-        if savefig: plt.savefig("NEM count per factor.png", dpi=300, bbox_inches='tight')
+        if savefig: plt.savefig("NEM count per factor.png", dpi='figure', bbox_inches='tight')
 
     return ratios
 
-def unified_mixed_model_analysis_fdr(df, response_variable, save_fig=False, output_path="img/"):
+def unified_mixed_model_analysis(df, response_variable, save_fig=False, output_path="img/"):
     # 1. Filter for RESCHU run phases
     reschu_df = df[df['phase'].str.contains('reschu_run')].copy()
     reschu_df = reschu_df.dropna(subset=[response_variable])
@@ -185,16 +185,6 @@ def unified_mixed_model_analysis_fdr(df, response_variable, save_fig=False, outp
 
     results_df = pd.DataFrame(results)
 
-    # 5. Apply FDR correction separately to global and zoom p-values
-    for p_col in ['global_p', 'zoom_p']:
-        pvals = results_df[p_col].dropna().values
-        rejected, pvals_fdr, _, _ = multipletests(pvals, alpha=0.05, method='fdr_bh')
-        results_df[f'{p_col}_FDR'] = np.nan
-        results_df[f'{p_col}_sig_FDR'] = False
-        results_df.loc[results_df[p_col].notna(), f'{p_col}_FDR'] = pvals_fdr
-        results_df.loc[results_df[p_col].notna(), f'{p_col}_sig_FDR'] = rejected
-        print("Raw p-values:", pvals)
-        print("FDR-adjusted p-values:", pvals_fdr)
     # 6. Plot
     fig, axs = plt.subplots(2, 3, figsize=(20, 12))
     axs = axs.flatten()
@@ -227,22 +217,18 @@ def unified_mixed_model_analysis_fdr(df, response_variable, save_fig=False, outp
                     line_kws={'lw': 2, 'ls': '-' if zoom else '--'}
                 )
 
-        # Annotation: MEM/OLS β + p + FDR p
+
         row = results_df[results_df['factor'] == factor].iloc[0]
         global_slope = row['global_slope']
         global_p = row['global_p']
-        global_p_fdr = row['global_p_FDR']
         zoom_slope = row['zoom_slope']
         zoom_p = row['zoom_p']
-        zoom_p_fdr = row['zoom_p_FDR']
 
-        weight = 'bold' if row['global_p_sig_FDR'] else 'regular'
+        weight = 'bold' if global_p<0.05 else 'regular'
 
         text = (
-            f"Global β={global_slope:.2f}\n"
-            f"p={global_p:.3f}, FDR={global_p_fdr:.3f}\n"
-            f"Zoom Δβ={zoom_slope:.2f}\n"
-            f"p={zoom_p:.3f}, FDR={zoom_p_fdr:.3f}"
+            f"Global β={global_slope:.2f} (p={global_p:.3f})\n"
+            f"Zoom Δβ={zoom_slope:.2f} (p={zoom_p:.3f})"
         )
 
         ax.text(0.05, 0.95, text,
@@ -251,7 +237,7 @@ def unified_mixed_model_analysis_fdr(df, response_variable, save_fig=False, outp
                 bbox=dict(facecolor='white', alpha=0.8),
                 weight=weight)
 
-        ax.set_title(f"{factor}: {FACTOR_LABELS.get(factor, factor)}", fontsize=16)
+        ax.set_title(f"{factor}: {FACTOR_LABELS.get(factor, factor)}", fontsize=18)
         ax.set_xlabel("Recurrence Rate (RR)")
         ax.set_ylabel(response_variable)
 
@@ -263,16 +249,20 @@ def unified_mixed_model_analysis_fdr(df, response_variable, save_fig=False, outp
     fig.legend(handles=handles, loc='lower center', ncol=2, bbox_to_anchor=(0.5, -0.03))
 
     plt.tight_layout()
-    plt.suptitle(f"Relation between {response_variable} and RR × Zoom (FDR-corrected)", fontsize=24, y=1.02)
+    if response_variable in ['Empathy', 'Cohesion', 'Cooperation']:
+        plt.suptitle(f"Ordinary Least Squares Regression of the relation between {response_variable.title()} and RR given Zoom", fontsize=24, y=1.02)
+    else:
+        plt.suptitle(f"Mixed Effects Modeling of the relation between {response_variable.title()} and RR given Zoom", fontsize=24, y=1.02)
+    
 
     if save_fig:
-        fig.savefig(f"{output_path}{response_variable}_zoom_FACE_FDR.png", dpi=300, bbox_inches='tight')
+        fig.savefig(f"{output_path}{response_variable}_zoom_FACE.png", dpi='figure', bbox_inches='tight')
 
     plt.show()
 
     return results_df
 
-def unified_rr_tp_analysis_fdr(df, response_variable, save_fig=False, output_path="img/"):
+def unified_rr_tp_analysis(df, response_variable, save_fig=False, output_path="img/"):
     # Filter RESCHU runs
     reschu_df = df[df['phase'].str.contains('reschu_run')].copy()
     reschu_df['run_number'] = reschu_df['phase'].str.extract(r'(\d+)$')[0]
@@ -281,11 +271,17 @@ def unified_rr_tp_analysis_fdr(df, response_variable, save_fig=False, output_pat
     if 'pair' not in reschu_df.columns:
         raise ValueError("Dataframe must contain a 'pair' column for grouping.")
 
-    if response_variable in ['Cohesion', 'Empathy', 'Cooperation']:
+    is_flat = response_variable in ['Cohesion', 'Empathy', 'Cooperation']
+
+    if is_flat:
         print(f"[INFO] '{response_variable}' detected as dyad-level (flat). Using OLS.")
         reschu_df = reschu_df.groupby('pair').agg(
             {**{f: 'mean' for f in FACTORS}, response_variable: 'first'}
         ).reset_index()
+
+    pairs = reschu_df['pair'].unique()
+    palette = sns.color_palette("husl", len(pairs))
+    pair_colors = dict(zip(pairs, palette))
 
     # Scale predictors and response
     for col in FACTORS + [response_variable]:
@@ -297,7 +293,7 @@ def unified_rr_tp_analysis_fdr(df, response_variable, save_fig=False, output_pat
         factor_scaled = f'{factor}_scaled'
         formula = f"{response_variable}_scaled ~ {factor_scaled}"
         try:
-            if response_variable in ['Cohesion', 'Empathy', 'Cooperation']:
+            if is_flat:
                 model = ols(formula, data=reschu_df).fit()
             else:
                 model = mixedlm(formula, data=reschu_df, groups=reschu_df['pair']).fit()
@@ -311,19 +307,6 @@ def unified_rr_tp_analysis_fdr(df, response_variable, save_fig=False, output_pat
 
     results_df = pd.DataFrame(results)
 
-    # Apply FDR correction
-    pvals = results_df['pval'].dropna().values
-    rejected, pvals_fdr, _, _ = multipletests(pvals, alpha=0.05, method='fdr_bh')
-
-    results_df['pval_FDR'] = np.nan
-    results_df['significant_FDR'] = False
-    results_df.loc[results_df['pval'].notna(), 'pval_FDR'] = pvals_fdr
-    results_df.loc[results_df['pval'].notna(), 'significant_FDR'] = rejected
-
-    print("Raw p-values:", pvals)
-    print("FDR-adjusted p-values:", pvals_fdr)
-
-
     # Plot
     plt.figure(figsize=(20, 12))
     for i, factor in enumerate(FACTORS, 1):
@@ -332,13 +315,14 @@ def unified_rr_tp_analysis_fdr(df, response_variable, save_fig=False, output_pat
             data=reschu_df,
             x=factor,
             y=response_variable,
-            hue='pair' if not response_variable in ['Cohesion', 'Empathy', 'Cooperation'] else None,
-            palette='husl' if not response_variable in ['Cohesion', 'Empathy', 'Cooperation'] else None,
+            hue='pair' if not is_flat else None,
+            palette='husl' if not is_flat else None,
             s=80,
             edgecolor='w',
             linewidth=0.5,
             legend=False
         )
+        
         if len(reschu_df) > 1:
             sns.regplot(
                 data=reschu_df,
@@ -349,20 +333,31 @@ def unified_rr_tp_analysis_fdr(df, response_variable, save_fig=False, output_pat
                 line_kws={'color': 'black', 'lw': 2, 'ls': '--'}
             )
 
-        # Annotation based on MEM/OLS + FDR
+        # Add per-dyad lines if not flat
+        if not is_flat:
+            from scipy.stats import linregress
+            global_slope, global_intercept, _, _, _ = linregress(reschu_df[factor], reschu_df[response_variable])
+            for pair in pairs:
+                pair_data = reschu_df[reschu_df['pair'] == pair]
+                if len(pair_data) < 2:
+                    continue
+                pair_intercept = np.mean(pair_data[response_variable] - global_slope * pair_data[factor])
+                x_vals = np.array([pair_data[factor].min(), pair_data[factor].max()])
+                y_vals = pair_intercept + global_slope * x_vals
+                plt.plot(x_vals, y_vals, color=pair_colors[pair], alpha=0.5, lw=1)
+
         row = results_df[results_df['factor'] == factor].iloc[0]
         coef = row['coef']
         pval = row['pval']
-        pval_fdr = row['pval_FDR']
-        sig = row['significant_FDR']
 
-        pval_text = f"p = {pval:.3f}"
-        pval_fdr_text = f"FDR p = {pval_fdr:.3f}"
-        weight = 'bold' if sig else 'regular'
+        pval_text = f"p = {pval:.3f}" if pval > 0.001 else "p < 0.001"
+        if pval < 0.05:
+            pval_text += '*'
+        weight = 'bold' if pval < 0.05 else 'regular'
 
         plt.text(
             0.05, 0.95,
-            f"β = {coef:.2f}\n{pval_text}\n{pval_fdr_text}",
+            f"β = {coef:.2f}\n{pval_text}",
             transform=plt.gca().transAxes,
             va='top', ha='left',
             bbox=dict(facecolor='white', alpha=0.8),
@@ -370,15 +365,16 @@ def unified_rr_tp_analysis_fdr(df, response_variable, save_fig=False, output_pat
         )
 
         plt.title(f"{response_variable.capitalize()} vs {factor}: {FACTOR_LABELS.get(factor, factor)}", fontsize=14)
-        plt.xlabel('Mean activation')
+        plt.xlabel('Recurrence Rate (RR)')
         plt.ylabel(response_variable.capitalize())
         plt.grid(alpha=0.3)
 
     plt.tight_layout()
-    plt.suptitle(f"Relation between {response_variable} and RR (FDR-corrected MEM p-values)", fontsize=20, y=1.02)
+    title = "Ordinary Least Squares" if is_flat else "Mixed Effects Modeling"
+    plt.suptitle(f"{title} of the relation between {response_variable.title()} and RR", fontsize=20, y=1.02)
 
     if save_fig:
-        plt.savefig(f"{output_path}{response_variable}_RR_model_MEM_FDR.png", dpi=300, bbox_inches='tight')
+        plt.savefig(f"{output_path}{response_variable}_RR_model_MEM.png", dpi='figure', bbox_inches='tight')
 
     plt.show()
 
