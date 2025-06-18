@@ -239,7 +239,10 @@ def unified_mixed_model_analysis(df, response_variable, save_fig=False, output_p
 
         ax.set_title(f"{factor}: {FACTOR_LABELS.get(factor, factor)}", fontsize=18)
         ax.set_xlabel("Recurrence Rate (RR)")
-        ax.set_ylabel(response_variable)
+        if response_variable == 'score':
+            ax.set_ylabel("Team " + response_variable.capitalize())
+        else:
+            ax.set_ylabel(response_variable)
 
     # Shared legend
     handles = [
@@ -251,6 +254,8 @@ def unified_mixed_model_analysis(df, response_variable, save_fig=False, output_p
     plt.tight_layout()
     if response_variable in ['Empathy', 'Cohesion', 'Cooperation']:
         plt.suptitle(f"Ordinary Least Squares Regression of the relation between {response_variable.title()} and RR given Zoom", fontsize=24, y=1.02)
+    elif response_variable == 'score':
+        plt.suptitle(f"Mixed Effects Modeling of the relation between Team {response_variable.title()} and RR given Zoom", fontsize=24, y=1.02)
     else:
         plt.suptitle(f"Mixed Effects Modeling of the relation between {response_variable.title()} and RR given Zoom", fontsize=24, y=1.02)
     
@@ -363,16 +368,21 @@ def unified_rr_tp_analysis(df, response_variable, save_fig=False, output_path="i
             bbox=dict(facecolor='white', alpha=0.8),
             weight=weight
         )
-
-        plt.title(f"{response_variable.capitalize()} vs {factor}: {FACTOR_LABELS.get(factor, factor)}", fontsize=14)
+        
+        plt.title(f"{factor}: {FACTOR_LABELS.get(factor, factor)}", fontsize=18)
         plt.xlabel('Recurrence Rate (RR)')
-        plt.ylabel(response_variable.capitalize())
+        if response_variable == 'score':
+            plt.ylabel("Team " + response_variable.capitalize())
+        else:
+            plt.ylabel(response_variable.capitalize())
         plt.grid(alpha=0.3)
 
     plt.tight_layout()
     title = "Ordinary Least Squares" if is_flat else "Mixed Effects Modeling"
-    plt.suptitle(f"{title} of the relation between {response_variable.title()} and RR", fontsize=20, y=1.02)
-
+    if response_variable == 'score':
+        plt.suptitle(f"{title} of the relation between Team {response_variable.title()} and RR", fontsize=20, y=1.02)
+    else:
+        plt.suptitle(f"{title} of the relation between {response_variable.title()} and RR", fontsize=20, y=1.02)
     if save_fig:
         plt.savefig(f"{output_path}{response_variable}_RR_model_MEM.png", dpi='figure', bbox_inches='tight')
 
