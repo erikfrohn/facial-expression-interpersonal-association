@@ -1,5 +1,7 @@
 /OpenFace_2.2.0_win_x64
-
+/data
 *.pyc
 toolbox.py
 testing.ipynb
+*.csv
+*.png
